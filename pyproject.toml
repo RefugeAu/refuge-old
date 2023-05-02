@@ -1,18 +1,14 @@
-[build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
-
-[project]
+[tool.poetry]
 name = "refuge"
-authors = [
-  { name = "Alex Carpenter", email = "alex@refuge.au" },
-  { name = "Simon Biggs", email = "simon@refuge.au" },
-]
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-license = { file = "LICENSE" }
-classifiers = ["License :: OSI Approved :: Apache Software License"]
-dynamic = ["version", "description"]
-dependencies = []
 
-[project.urls]
-Home = "https://refuge.au"
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
