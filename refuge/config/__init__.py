@@ -13,9 +13,4 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import pathlib
-
-REFUGE_DIR = pathlib.Path().home() / ".refuge"
-DATA_DIR = REFUGE_DIR / "data"
-TRAINING_DATA_DIR = DATA_DIR / "training"
-TRAINING_DATA_DIR.mkdir(exist_ok=True, parents=True)
+from ._load import Config, get_model_base_name, get_project_checkpoint_dir, load_config

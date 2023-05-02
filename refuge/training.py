@@ -29,49 +29,25 @@ from transformers import Adafactor, GPTNeoXTokenizerFast
 from refuge._vendor.mkultra.soft_prompt import SoftPrompt
 from refuge._vendor.mkultra.tuning import GPTNeoXPromptTuningLM
 
-from .paths import TRAINING_DATA_DIR
+from . import config
+from ._paths import TRAINING_DATA_DIR
+
+Config = config.Config
 
 
-def main(num_steps):
+def main(cfg: Config):
     training_data_path = TRAINING_DATA_DIR / "alice.txt"
 
     if not training_data_path.exists():
         _create_alice_txt(training_data_path)
 
-    model_name = "databricks/dolly-v2-3b"
-
-    tokenizer = GPTNeoXTokenizerFast.from_pretrained(model_name, padding_side="left")
+    tokenizer = GPTNeoXTokenizerFast.from_pretrained(
+        cfg["project"]["model_name"], padding_side="left"
+    )
     model = GPTNeoXPromptTuningLM.from_pretrained(model_name, device_map="auto")
 
-    initial_prompt = "A surreal children's fantasy story set in a subterranean world populated by peculiar anthropomorphic creatures.\n"
-    block_size = 700
-    sp_name = "alice-cyclic-dropout-2"
-
-    model_base_name = model_name.rsplit("/", maxsplit=1)
-
-    project_dir = f"/home/simon/.mkultra/soft_prompts/{sp_name}-{model_base_name}/"
-    checkpoint_interval = 20
-    eval_interval = 5
-    eval_blocks = 16
-
-    optimizer_params = {
-        "lr": 2e-4,
-        "beta1": 0.0,
-        "decay_rate": -0.8,
-        "weight_decay": 0.1,
-        "scale_parameter": False,
-        "relative_step": False,
-    }
-
-    scheduler_params = {
-        "num_warmup_steps": 10,
-        "num_cycles": 8,
-        "num_training_steps": num_steps,
-    }
-
-    base_acc_steps = 16
-    acc_doubling_rate = 0
-    plateau_steps = 0
+    model_base_name = config.get_model_base_name(cfg)
+    project_checkpoint_dir = config.get_project_checkpoint_dir(cfg)
 
     filename_for_checkpoint = (
         lambda step: f"{sp_name}-{model_base_name}-step-{step}.json"
@@ -79,15 +55,8 @@ def main(num_steps):
     loaded_sp = None
     project_files = None
 
-    # Look for existing project directory
-    try:
-        os.makedirs(project_dir)
-        print(f"Created project directory at {project_dir}")
-    except FileExistsError:
-        print(f"Found project directory at {project_dir}")
-
     # Look for existing checkpoints
-    project_files = os.listdir(project_dir)
+    project_files = os.listdir(project_checkpoint_dir)
     if project_files is not None:
         checkpoint_files = [
             check_file for check_file in project_files if ("-step-" in check_file)
@@ -101,14 +70,16 @@ def main(num_steps):
                 ]
             )
             loaded_sp = SoftPrompt.from_file(
-                os.path.join(project_dir, filename_for_checkpoint(highest_step))
+                os.path.join(
+                    project_checkpoint_dir, filename_for_checkpoint(highest_step)
+                )
             )
             print(f"Loading latest checkpoint: {highest_step}")
         else:
             print("No checkpoints found")
 
     text_tokenized = None
-    tokens_path = os.path.join(project_dir, "tokens.json")
+    tokens_path = os.path.join(project_checkpoint_dir, "tokens.json")
 
     # See if we already have a tokens file
     try:
@@ -141,7 +112,7 @@ def main(num_steps):
         end = min(start + block_size, text_length)
         blocks.append(text_tokenized[start:end])
 
-    block_order_path = os.path.join(project_dir, "block_order.json")
+    block_order_path = os.path.join(project_checkpoint_dir, "block_order.json")
 
     # See if we already have a block_order file
     try:
@@ -180,7 +151,7 @@ def main(num_steps):
     )
 
     torch.cuda.empty_cache()
-    loss_log_path = os.path.join(project_dir, "loss_log.csv")
+    loss_log_path = os.path.join(project_checkpoint_dir, "loss_log.csv")
     progress_bar = tqdm(total=num_training_steps)
     optimizer.state["step"] = sp_step
     evals_since_last_improvement = 0
@@ -284,7 +255,9 @@ def main(num_steps):
                     "loss": eval_loss,
                 },
             )
-            sp.to_file(os.path.join(project_dir, filename_for_checkpoint(sp_step)))
+            sp.to_file(
+                os.path.join(project_checkpoint_dir, filename_for_checkpoint(sp_step))
+            )
 
         progress_bar.set_postfix(
             {
@@ -302,7 +275,7 @@ def main(num_steps):
         model,
         {"name": sp_name + f"-step-{sp_step}", "step": sp_step, "loss": eval_loss},
     )
-    sp.to_file(os.path.join(project_dir, filename_for_checkpoint(sp_step)))
+    sp.to_file(os.path.join(project_checkpoint_dir, filename_for_checkpoint(sp_step)))
 
 
 def _create_alice_txt(path):

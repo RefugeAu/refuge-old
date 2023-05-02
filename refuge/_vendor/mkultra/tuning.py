@@ -55,10 +55,10 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         return model
 
     def initialize_soft_prompt(self, n_tokens=20):
-        self.gpt_neox.embed_in = cast(nn.Embedding, self.gpt_neox.embed_in)
+        embedding = cast(nn.Embedding, self.gpt_neox.embed_in)
 
         self.learned_embedding = nn.parameter.Parameter(
-            self.gpt_neox.embed_in.weight[:n_tokens].clone().detach()
+            embedding.weight[:n_tokens].clone().detach()
         )
 
     def set_soft_prompt(self, sp: SoftPrompt):
