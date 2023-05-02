@@ -3,8 +3,8 @@
     {
       "path": ".."
     },
-    {"path": "/home/simon/.mkultra"},
-    {"path": "/home/simon/.refuge"}
+    { "path": "/home/simon/.mkultra" },
+    { "path": "/home/simon/.refuge" }
   ],
   "settings": {
     "editor.tabSize": 2,
@@ -120,6 +120,7 @@
       "equina",
       "esbuild",
       "Esophagus",
+      "evals",
       "fastapi",
       "Fernet",
       "fmea",
@@ -189,6 +190,7 @@
       "nbstripout",
       "ndarray",
       "ndarrays",
+      "neox",
       "nojekyll",
       "NONPLANAR",
       "nptyping",
@@ -290,10 +292,12 @@
       "tobytes",
       "tomlkit",
       "topk",
+      "tqdm",
       "Trachbrnchs",
       "typecheck",
       "typer",
       "Unported",
+      "unsqueeze",
       "urlsafe",
       "useragent",
       "userinfo",

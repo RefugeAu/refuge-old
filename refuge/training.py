@@ -181,7 +181,7 @@ def main(num_steps):
 
     torch.cuda.empty_cache()
     loss_log_path = os.path.join(project_dir, "loss_log.csv")
-    bar = tqdm(total=num_training_steps)
+    progress_bar = tqdm(total=num_training_steps)
     optimizer.state["step"] = sp_step
     evals_since_last_improvement = 0
     best_eval = float("inf")
@@ -198,7 +198,7 @@ def main(num_steps):
         else:
             return base_acc_steps
 
-    for session_step in range(num_training_steps):
+    for _session_step in range(num_training_steps):
         model.train()
 
         acc_steps = get_acc_steps(sp_step)
@@ -286,7 +286,7 @@ def main(num_steps):
             )
             sp.to_file(os.path.join(project_dir, filename_for_checkpoint(sp_step)))
 
-        bar.set_postfix(
+        progress_bar.set_postfix(
             {
                 "Model Step": sp_step,
                 "Eval Loss": "{el:.5f}".format(el=eval_loss),
@@ -294,7 +294,7 @@ def main(num_steps):
                 "LR": lr,
             }
         )
-        bar.update(1)
+        progress_bar.update(1)
         sp_step += 1
 
     # Save a checkpoint once done
@@ -307,26 +307,27 @@ def main(num_steps):
 
 def _create_alice_txt(path):
     data_str = requests.get(
-        "https://www.gutenberg.org/files/11/11-0.txt"
+        "https://www.gutenberg.org/files/11/11-0.txt", timeout=60
     ).content.decode("utf-8")
     clean_data_str = data_str
 
-    def regex_replace(str, regex, group, replacement):
-        pat = re.compile(regex)
-        while True:
-            m = pat.search(str)
-            if m is not None:
-                str = str[: m.start(group)] + replacement + str[m.end(group) :]
-            else:
-                break
-        return str
-
-    clean_data_str = regex_replace(clean_data_str, r"\r", 0, "")
-    clean_data_str = regex_replace(clean_data_str, r"\S(\n)\S", 1, " ")
-    clean_data_str = regex_replace(clean_data_str, r"\u201C", 0, '"')
-    clean_data_str = regex_replace(clean_data_str, r"\u201D", 0, '"')
-    clean_data_str = regex_replace(clean_data_str, r"_", 0, "")
+    clean_data_str = _regex_replace(clean_data_str, r"\r", 0, "")
+    clean_data_str = _regex_replace(clean_data_str, r"\S(\n)\S", 1, " ")
+    clean_data_str = _regex_replace(clean_data_str, r"\u201C", 0, '"')
+    clean_data_str = _regex_replace(clean_data_str, r"\u201D", 0, '"')
+    clean_data_str = _regex_replace(clean_data_str, r"_", 0, "")
     clean_data_str = clean_data_str[1434:-18595]
 
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(clean_data_str)
+
+
+def _regex_replace(s: str, regex, group, replacement):
+    pat = re.compile(regex)
+    while True:
+        m = pat.search(s)
+        if m is not None:
+            s = s[: m.start(group)] + replacement + s[m.end(group) :]
+        else:
+            break
+    return s

@@ -20,20 +20,32 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# pylint: disable = unused-argument
+
+from typing import cast
+
 import torch
-import torch.nn as nn
+from torch import nn
 from transformers import GPTNeoXForCausalLM
 
 from .soft_prompt import SoftPrompt
 
+OptionalFloatTensor = torch.FloatTensor | None
+OptionalLongTensor = torch.LongTensor | None
+
 
 class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
     def __init__(self, config):
+        self.learned_embedding = None
+
         super().__init__(config)
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
-        model = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
+        model = cast(
+            GPTNeoXPromptTuningLM,
+            super().from_pretrained(pretrained_model_name_or_path, **kwargs),
+        )
 
         for param in model.parameters():
             param.requires_grad = False
@@ -43,13 +55,10 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         return model
 
     def initialize_soft_prompt(self, n_tokens=20):
+        self.gpt_neox.embed_in = cast(nn.Embedding, self.gpt_neox.embed_in)
+
         self.learned_embedding = nn.parameter.Parameter(
             self.gpt_neox.embed_in.weight[:n_tokens].clone().detach()
-        )
-
-    def set_soft_prompt_embeds(self, soft_prompt_embeds):
-        self.learned_embedding = nn.parameter.Parameter(
-            soft_prompt_embeds.clone().detach()
         )
 
     def set_soft_prompt(self, sp: SoftPrompt):
@@ -61,7 +70,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         return self.learned_embedding
 
     def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, *args, **kwargs
+        self, input_ids, *args, past_key_values=None, **kwargs
     ):
         input_ids = input_ids.to(self.device)
         # Drop 'past' to make things easier for us later
@@ -75,13 +84,16 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         else:
             ie = inputs_embeds
 
+        assert self.learned_embedding is not None
+
         inputs_embeds = torch.cat(
             [self.learned_embedding.repeat(ie.size(0), 1, 1), ie], dim=1
         )
 
         return inputs_embeds
 
-    def _extend_labels(self, labels):
+    def _extend_labels(self, labels: torch.Tensor):
+        assert self.learned_embedding is not None
         n_tokens = self.learned_embedding.shape[-2]
 
         if len(list(labels.shape)) == 1:
@@ -95,7 +107,8 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
             [torch.full((n_batches, n_tokens), -100).to(self.device), lb], dim=1
         )
 
-    def _extend_attention_mask(self, attention_mask):
+    def _extend_attention_mask(self, attention_mask: torch.Tensor):
+        assert self.learned_embedding is not None
         n_tokens = self.learned_embedding.shape[-2]
 
         if len(list(attention_mask.shape)) == 1:
@@ -143,9 +156,9 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
 
         # Drop most of the args for now
         return super().forward(
-            attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
-            labels=labels,
+            attention_mask=cast(OptionalFloatTensor, attention_mask),
+            inputs_embeds=cast(OptionalFloatTensor, inputs_embeds),
+            labels=cast(OptionalLongTensor, labels),
             use_cache=use_cache,
             return_dict=return_dict,
         )

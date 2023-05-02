@@ -26,7 +26,7 @@ import datetime
 import json
 import pickle
 import uuid
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import torch
 
@@ -64,7 +64,7 @@ class SoftPrompt:
     # List of compatible models.
     _models = list()
 
-    def __init__(self, tensor: torch.Tensor, metadata: Dict[str, Any] = None):
+    def __init__(self, tensor: torch.Tensor, metadata: dict[str, Any] | None = None):
         self._tensor = tensor
 
         # if len(self._tensor.shape) == 2:
@@ -76,6 +76,8 @@ class SoftPrompt:
         return self._tensor.shape[-2]
 
     def __str__(self):
+        assert self._metadata is not None
+
         return (
             f"{self._metadata['name']} ({datetime.datetime.fromtimestamp(self._metadata['epoch'])})\n"
             f"Length: {len(self)}\n"
@@ -91,6 +93,8 @@ class SoftPrompt:
         return other + self.get_tag_str()
 
     def _unique_token_str(self):
+        assert self._metadata is not None
+
         return f"<{self._metadata['name']}-{self._metadata['uuid'][:8]}-@>"
 
     def _check_integrity(self):
