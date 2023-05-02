@@ -1,4 +1,3 @@
-# Refuge, to inspire every business owner with the Gospel and empower them with AI.
 # Copyright (C) Alex Carpenter and Simon Biggs
 
 # This program is free software: you can redistribute it and/or modify
