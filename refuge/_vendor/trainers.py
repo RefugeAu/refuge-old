@@ -186,7 +186,7 @@ class SoftPromptTrainer:
     def _maybe_create_project_directory(self):
         import os
 
-        from mkultra.soft_prompt import SoftPrompt
+        from .soft_prompt import SoftPrompt
 
         # Look for existing project directory
         try:
@@ -198,7 +198,7 @@ class SoftPromptTrainer:
     def _load_latest_checkpoint(self):
         import os
 
-        from mkultra.soft_prompt import SoftPrompt
+        from .soft_prompt import SoftPrompt
 
         # Look for existing checkpoints
         project_files = os.listdir(self.project_dir)
@@ -294,8 +294,9 @@ class SoftPromptTrainer:
         import random
 
         import torch
-        from mkultra.soft_prompt import SoftPrompt
         from tqdm import tqdm
+
+        from .soft_prompt import SoftPrompt
 
         # Train for one epoch by default
         if num_training_steps is None:
