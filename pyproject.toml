@@ -1,3 +1,7 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
 name = "refuge"
 version = "0.1.0"
@@ -8,7 +12,35 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 
+[tool.poetry.group.dev.dependencies]
+black = "*"
+ipykernel = "*"
+isort = "*"
+pylint = "*"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.isort]
+profile = "black"
+color_output = true
+known_first_party = ["refuge"]
+
+[tool.pyright]
+ignore = ["**/node_modules", "**/__pycache__"]
+typeCheckingMode = "basic"
+
+[tool.pylint.messages-control]
+disable = [
+  "fixme",
+  "line-too-long",
+  "missing-function-docstring",
+  "no-name-in-module",
+  "missing-class-docstring",
+  "too-few-public-methods",
+  "invalid-name",
+  "missing-module-docstring",
+  "no-member",
+  "logging-fstring-interpolation",
+]
+
+[tool.pylint.design]
+max-locals = 25
+max-args = 8

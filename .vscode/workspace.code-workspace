@@ -20,6 +20,9 @@
     "python.linting.enabled": true,
     "python.linting.lintOnSave": true,
     "python.linting.pylintEnabled": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
     "python.linting.mypyEnabled": false,
     "github.copilot.inlineSuggest.enabled": false,
     // "editor.maxTokenizationLineLength": 100000,
