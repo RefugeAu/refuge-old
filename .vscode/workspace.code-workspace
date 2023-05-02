@@ -3,7 +3,8 @@
     {
       "path": ".."
     },
-    {"path": "/home/simon/.mkultra"}
+    {"path": "/home/simon/.mkultra"},
+    {"path": "/home/simon/.refuge"}
   ],
   "settings": {
     "editor.tabSize": 2,
@@ -102,6 +103,7 @@
       "Cribriform",
       "Cricopharyngeus",
       "CUDA",
+      "databricks",
       "dateutil",
       "davinci",
       "Decending",
