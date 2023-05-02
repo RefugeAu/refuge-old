@@ -2,7 +2,8 @@
   "folders": [
     {
       "path": ".."
-    }
+    },
+    {"path": "/home/simon/.mkultra"}
   ],
   "settings": {
     "editor.tabSize": 2,
