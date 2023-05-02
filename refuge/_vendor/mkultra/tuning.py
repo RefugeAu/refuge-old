@@ -22,17 +22,15 @@
 
 import torch
 import torch.nn as nn
-from transformers import (
-    GPT2LMHeadModel,
-    GPTJForCausalLM,
-    GPTNeoForCausalLM,
-    GPTNeoXForCausalLM,
-)
+from transformers import GPTNeoXForCausalLM
 
 from .soft_prompt import SoftPrompt
 
 
-class GPTPromptTuningMixin:
+class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
+    def __init__(self, config):
+        super().__init__(config)
+
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
         model = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
@@ -46,7 +44,7 @@ class GPTPromptTuningMixin:
 
     def initialize_soft_prompt(self, n_tokens=20):
         self.learned_embedding = nn.parameter.Parameter(
-            self.transformer.wte.weight[:n_tokens].clone().detach()
+            self.gpt_neox.embed_in.weight[:n_tokens].clone().detach()
         )
 
     def set_soft_prompt_embeds(self, soft_prompt_embeds):
@@ -70,20 +68,15 @@ class GPTPromptTuningMixin:
         return super().prepare_inputs_for_generation(input_ids, None, *args, **kwargs)
 
     def _cat_learned_embedding_to_input(self, input_ids):
-        inputs_embeds = self.transformer.wte(input_ids)
+        inputs_embeds = self.gpt_neox.embed_in(input_ids)
 
         if len(list(inputs_embeds.shape)) == 2:
             ie = inputs_embeds.unsqueeze(0)
         else:
             ie = inputs_embeds
 
-        try:
-            learned_embedding = self.transformer.drop(self.learned_embedding)
-        except AttributeError:
-            learned_embedding = self.learned_embedding
-
         inputs_embeds = torch.cat(
-            [learned_embedding.repeat(ie.size(0), 1, 1), ie], dim=1
+            [self.learned_embedding.repeat(ie.size(0), 1, 1), ie], dim=1
         )
 
         return inputs_embeds
@@ -156,28 +149,3 @@ class GPTPromptTuningMixin:
             use_cache=use_cache,
             return_dict=return_dict,
         )
-
-
-class GPT2PromptTuningLM(GPTPromptTuningMixin, GPT2LMHeadModel):
-    def __init__(self, config):
-        super().__init__(config)
-
-
-class GPTNeoPromptTuningLM(GPTPromptTuningMixin, GPTNeoForCausalLM):
-    def __init__(self, config):
-        super().__init__(config)
-
-
-class GPTNeoXPromptTuningLM(GPTPromptTuningMixin, GPTNeoXForCausalLM):
-    def __init__(self, config):
-        super().__init__(config)
-        self.transformer = self.gpt_neox
-        self.transformer.wte = self.gpt_neox.embed_in
-
-
-class GPTJPromptTuningLM(GPTPromptTuningMixin, GPTJForCausalLM):
-    def __init__(self, config):
-        super().__init__(config)
-
-
-# GPT2PromptTuningLM.transformer
