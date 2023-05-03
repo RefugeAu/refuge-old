@@ -59,7 +59,10 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
     optimizer.state["step"] = step
 
     scheduler = transformers.get_cosine_with_hard_restarts_schedule_with_warmup(
-        optimizer, **cfg.scheduler.__dict__
+        optimizer,
+        num_warmup_steps=cfg.scheduler.num_warmup_steps,
+        num_training_steps=cfg.scheduler.num_training_steps,
+        num_cycles=cfg.scheduler.num_cycles,
     )
 
     progress_bar = tqdm(total=cfg.scheduler.num_training_steps)
@@ -99,11 +102,15 @@ def _inner_loop(
         acc_steps = _get_acc_steps(cfg, optimizer.state["step"])
 
         for _ in range(acc_steps):
-            block_start = random.randint(0, max_block_start)
-            block_end = block_start + cfg.training.block_size
+            blocks = []
+            for _ in range(cfg.training.batch_size):
+                block_start = random.randint(0, max_block_start)
+                block_end = block_start + cfg.training.block_size
 
-            block = training[block_start:block_end]
-            outputs = _evaluate_model(model, block)
+                block = training[block_start:block_end]
+                blocks.append(block)
+
+            outputs = _evaluate_model(model, blocks)
 
             loss = outputs.loss
             loss.backward()
@@ -142,8 +149,8 @@ def _inner_loop(
         progress_bar.update(1)
 
 
-def _evaluate_model(model: GPTNeoXPromptTuningLM, block: list[int]):
-    input_ids = torch.LongTensor(block).unsqueeze(0).to(model.device)
+def _evaluate_model(model: GPTNeoXPromptTuningLM, blocks: list[list[int]]):
+    input_ids = torch.LongTensor(blocks).to(model.device)
 
     inputs_embeds = _cat_learned_embedding_to_input(model, input_ids)
     labels = _extend_labels(model, input_ids)
@@ -240,13 +247,13 @@ def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, input_ids):
     return inputs_embeds
 
 
-def _extend_labels(model: GPTNeoXPromptTuningLM, labels: torch.Tensor):
+def _extend_labels(model: GPTNeoXPromptTuningLM, input_ids: torch.Tensor):
     n_tokens = model.soft_prompt_parameter.shape[-2]
 
-    if len(list(labels.shape)) == 1:
-        lb = labels.unsqueeze(0)
+    if len(list(input_ids.shape)) == 1:
+        lb = input_ids.unsqueeze(0)
     else:
-        lb = labels
+        lb = input_ids
 
     # Add '-100's (prevent loss calculation where the learned embed would be)
     n_batches = lb.shape[0]

@@ -43,6 +43,7 @@ class TrainingConfig(SimpleNamespace):
     acc_doubling_rate: int
     plateau_steps: int
     block_size: int
+    batch_size: int
 
 
 class OptimizerConfig(SimpleNamespace):
