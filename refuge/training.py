@@ -24,7 +24,7 @@ import torch
 import transformers
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
-from transformers import Adafactor, GPTNeoXTokenizerFast
+from transformers import Adafactor, AddedToken, GPTNeoXTokenizerFast
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from . import config
@@ -36,7 +36,14 @@ from .model import GPTNeoXPromptTuningLM
 Config = config.Config
 
 
-def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuningLM):
+def get_tokenizer_model_tokens_and_step(cfg: Config):
+    tokenizer: GPTNeoXTokenizerFast = GPTNeoXTokenizerFast.from_pretrained(
+        cfg.model.hugging_face_name, padding_side="left"
+    )
+    model: GPTNeoXPromptTuningLM = GPTNeoXPromptTuningLM.from_pretrained(
+        cfg.model.hugging_face_name, device_map="auto"
+    )
+
     try:
         step, model.soft_prompt_embeddings = load_latest_checkpoint(cfg)
     except FileNotFoundError:
@@ -45,6 +52,20 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
             tokenizer, model, cfg.prompt.initializer
         )
 
+    number_of_soft_tokens = model.soft_prompt_embeddings.shape[0]
+    soft_tokens: list[str | AddedToken] = [
+        f"<|{i}|>" for i in range(number_of_soft_tokens)
+    ]
+    assert set(tokenizer.vocab.keys()).isdisjoint(soft_tokens)
+
+    tokenizer.add_tokens(soft_tokens)
+
+    return tokenizer, model, soft_tokens, step
+
+
+def train(
+    cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuningLM, step
+):
     text_tokenized = _get_tokenized_text(cfg, tokenizer)
     eval_split = cfg.training.block_size * cfg.training.eval_blocks
     training = text_tokenized[:-eval_split]
