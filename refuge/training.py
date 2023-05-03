@@ -25,6 +25,7 @@ import transformers
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 from transformers import Adafactor, GPTNeoXTokenizerFast
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from . import config
 from ._checkpoints import load_latest_checkpoint, save_checkpoint
@@ -46,12 +47,18 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
 
     text_tokenized = _get_tokenized_text(cfg, tokenizer)
     eval_split = cfg.training.block_size * cfg.training.eval_blocks
-    training = text_tokenized[:eval_split]
-    evaluation = text_tokenized[eval_split:]
+    training = text_tokenized[:-eval_split]
+    evaluation = text_tokenized[-eval_split:]
+
+    print(len(training), len(evaluation))
 
     evaluation_blocks = [
         evaluation[i : i + cfg.training.block_size]
-        for i in range(0, cfg.training.eval_blocks, cfg.training.block_size)
+        for i in range(
+            0,
+            cfg.training.eval_blocks * cfg.training.block_size,
+            cfg.training.block_size,
+        )
     ]
 
     parameters_to_train = [model.soft_prompt_parameter]
@@ -76,6 +83,7 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
             optimizer=optimizer,
             scheduler=scheduler,
             progress_bar=progress_bar,
+            tokenizer=tokenizer,
         )
     finally:
         save_checkpoint(cfg, optimizer.state["step"], model.soft_prompt_embeddings)
@@ -84,6 +92,7 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
 
 def _inner_loop(
     cfg: Config,
+    tokenizer: GPTNeoXTokenizerFast,
     model: GPTNeoXPromptTuningLM,
     training: list[int],
     evaluation_blocks: list[list[int]],
@@ -114,6 +123,7 @@ def _inner_loop(
             outputs = _evaluate_model(model, blocks_tensor)
 
             loss = outputs.loss
+            assert loss is not None
             loss.backward()
 
         optimizer.step()
@@ -137,7 +147,19 @@ def _inner_loop(
                     )
                     outputs = _evaluate_model(model, blocks_tensor)
 
-                    eval_loss += outputs.loss.item()
+                    # tokens = model.convert_logits_to_tokens(outputs.logits[0, 22:, :])
+
+                    # print("---")
+                    # print("Input")
+                    # print(tokenizer.decode(block))
+                    # print("---")
+                    # print("Output")
+                    # print(tokenizer.decode(tokens))
+                    # print("---")
+
+                    loss = outputs.loss
+                    assert loss is not None
+                    eval_loss += loss.item()
 
             eval_loss /= cfg.training.eval_blocks
 
@@ -157,7 +179,7 @@ def _evaluate_model(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
     inputs_embeds = _cat_learned_embedding_to_input(model, blocks)
     labels = _extend_labels(model, blocks)
 
-    outputs = model(
+    outputs: CausalLMOutputWithPast = model(
         inputs_embeds=inputs_embeds.to(model.device),
         labels=labels.to(model.device),
     )
@@ -235,7 +257,7 @@ def _regex_replace(s: str, regex, group, replacement):
 
 
 def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
-    base_embeddings = model.get_token_embeddings(blocks)
+    base_embeddings = model.convert_token_to_embeddings(blocks)
 
     # TODO: Handle this directly with the get_token_embeddings function
     inputs_embeds = torch.cat(

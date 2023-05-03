@@ -18,6 +18,7 @@ from typing import cast
 
 import torch
 from torch import nn
+from torch.nn.functional import cosine_similarity
 from transformers import GPTNeoXForCausalLM
 
 
@@ -57,5 +58,9 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         return super().generate(*args, **kwargs)
 
     # TODO: Add custom tokens here, also add custom tokens to the tokenizer
-    def get_token_embeddings(self, tokens: torch.Tensor) -> torch.Tensor:
-        return self.gpt_neox.embed_in(tokens)
+    def convert_token_to_embeddings(self, tokens: torch.Tensor) -> torch.Tensor:
+        embedding_layer = cast(nn.Embedding, self.gpt_neox.embed_in)
+        return embedding_layer(tokens)
+
+    def convert_logits_to_tokens(self, logits: torch.Tensor) -> torch.Tensor:
+        return logits.argmax(dim=-1)
