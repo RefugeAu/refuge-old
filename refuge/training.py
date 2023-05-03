@@ -180,24 +180,7 @@ def _inner_loop(
             eval_loss = 0
 
             with torch.no_grad():
-                dolly_prompt = DOLLY_PROMPT_FORMAT.format(instruction=model.soft_prompt)
-                tokens = tokenizer.encode(dolly_prompt, return_tensors="pt").to(
-                    model.device
-                )
-                basic_output = model.generate(
-                    input_ids=tokens,
-                    pad_token_id=tokenizer.pad_token_id,
-                    max_new_tokens=256,
-                    top_p=0.92,
-                    do_sample=True,
-                    eos_token_id=eos_token_id,
-                )
-
-                text_result = tokenizer.decode(basic_output[0])
-                response = text_result.split(RESPONSE_KEY)[-1]
-                response = response.removesuffix(END_KEY).strip()
-
-                print(response)
+                print(tokenizer.decode(model.translated_soft_prompt()).strip())
 
                 for block in evaluation_blocks:
                     blocks_tensor = (
