@@ -1,11 +1,11 @@
 [project]
-name = "alice"
+name = "alice-v2"
 
 [model]
 hugging_face_name = "databricks/dolly-v2-3b"
 
 [prompt]
-initializer = "A surreal children's fantasy story set in a subterranean world populated by peculiar anthropomorphic creatures.\n"
+initializer = "Write an exerpt of a surreal children's fantasy story set in a subterranean world populated by peculiar anthropomorphic creatures. Go!\n\n"
 
 [training]
 block_size = 700
@@ -28,4 +28,4 @@ relative_step = false
 [scheduler]
 num_warmup_steps = 10
 num_cycles = 8
-num_training_steps = 1000
+num_training_steps = 3000

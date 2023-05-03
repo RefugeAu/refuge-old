@@ -3,7 +3,6 @@
     {
       "path": ".."
     },
-    { "path": "/home/simon/.mkultra" },
     { "path": "/home/simon/.refuge" }
   ],
   "settings": {
@@ -308,6 +307,7 @@
       "Venacava",
       "venv",
       "virtualenvs",
+      "vocab",
       "Vomer",
       "waivable",
       "WASI",
