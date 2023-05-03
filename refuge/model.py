@@ -25,6 +25,8 @@ from transformers import GPTNeoXForCausalLM
 class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
     def __init__(self, config):
         self._soft_prompt_parameter = None
+        self._step = None
+        self._soft_tokens = None
 
         super().__init__(config)
 
@@ -53,11 +55,33 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
     def soft_prompt_embeddings(self, embeddings: torch.Tensor):
         self._soft_prompt_parameter = nn.parameter.Parameter(embeddings.to(self.device))
 
+    @property
+    def step(self):
+        assert self._step is not None
+        return self._step
+
+    @step.setter
+    def step(self, step: int):
+        self._step = step
+
+    @property
+    def soft_tokens(self):
+        assert self._soft_tokens is not None
+        return self._soft_tokens
+
+    @soft_tokens.setter
+    def soft_tokens(self, soft_tokens: list[str]):
+        self._soft_tokens = soft_tokens
+
+    @property
+    def soft_prompt(self):
+        return "".join(self.soft_tokens)
+
     @torch.no_grad()
     def generate(self, *args, **kwargs):
         return super().generate(*args, **kwargs)
 
-    def convert_token_to_embeddings(self, tokens: torch.Tensor) -> torch.Tensor:
+    def convert_tokens_to_embeddings(self, tokens: torch.Tensor) -> torch.Tensor:
         soft_token_mask = tokens >= self.config.vocab_size
         masked_tokens = tokens.clone()
         masked_tokens[soft_token_mask] = 0
@@ -102,7 +126,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         model_inputs: dict[str, torch.Tensor | None] = {}
 
         try:
-            inputs_embeds = self.convert_token_to_embeddings(input_ids)
+            inputs_embeds = self.convert_tokens_to_embeddings(input_ids)
             model_inputs = {"inputs_embeds": inputs_embeds}
         except AssertionError:
             model_inputs = {"input_ids": input_ids}
@@ -116,3 +140,26 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         )
 
         return model_inputs
+
+    def convert_embeddings_to_token(self, embeddings: torch.Tensor) -> torch.Tensor:
+        embeddings_transposed = embeddings.T
+        normalized_embedding_transposed = torch.linalg.norm(
+            embeddings_transposed, dim=0, keepdim=True
+        )
+
+        embedding_layer = cast(nn.Embedding, self.gpt_neox.embed_in)
+        normalized_weights = torch.linalg.norm(
+            embedding_layer.weight, dim=1, keepdim=True
+        )
+
+        cosine_similarities = (
+            (embedding_layer.weight @ embeddings_transposed)
+            / (normalized_weights @ normalized_embedding_transposed)
+        ).T
+
+        token_indices = torch.argmax(cosine_similarities, dim=1)
+
+        return token_indices
+
+    def translated_soft_prompt(self):
+        return self.convert_embeddings_to_token(self.soft_prompt_embeddings)

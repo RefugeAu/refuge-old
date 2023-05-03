@@ -18,6 +18,7 @@ import json
 import math
 import random
 import re
+from typing import cast
 
 import requests
 import torch
@@ -34,6 +35,19 @@ from ._paths import TRAINING_DATA_DIR
 from .model import GPTNeoXPromptTuningLM
 
 Config = config.Config
+
+INTRO_BLURB = "Below is an instruction that describes a task. Write a response that appropriately completes the request."
+INSTRUCTION_KEY = "### Instruction:"
+RESPONSE_KEY = "### Response:"
+END_KEY = "### End"
+
+DOLLY_PROMPT_FORMAT = f"""{INTRO_BLURB}
+
+{INSTRUCTION_KEY}
+{"{instruction}"}
+
+{RESPONSE_KEY}
+"""
 
 
 def get_tokenizer_model_tokens_and_step(cfg: Config):
@@ -52,19 +66,22 @@ def get_tokenizer_model_tokens_and_step(cfg: Config):
             tokenizer, model, cfg.prompt.initializer
         )
 
+    model.step = step
+
     number_of_soft_tokens = model.soft_prompt_embeddings.shape[0]
-    soft_tokens: list[str | AddedToken] = [
-        f"<|{i}|>" for i in range(number_of_soft_tokens)
-    ]
+    soft_tokens = [f"<|{i}|>" for i in range(number_of_soft_tokens)]
     assert set(tokenizer.vocab.keys()).isdisjoint(soft_tokens)
 
-    tokenizer.add_tokens(soft_tokens)
+    tokenizer.add_tokens(cast(list[str | AddedToken], soft_tokens))
+    model.soft_tokens = soft_tokens
 
-    return tokenizer, model, soft_tokens, step
+    return tokenizer, model
 
 
 def train(
-    cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuningLM, step
+    cfg: Config,
+    tokenizer: GPTNeoXTokenizerFast,
+    model: GPTNeoXPromptTuningLM,
 ):
     text_tokenized = _get_tokenized_text(cfg, tokenizer)
     eval_split = cfg.training.block_size * cfg.training.eval_blocks
@@ -84,7 +101,7 @@ def train(
 
     parameters_to_train = [model.soft_prompt_parameter]
     optimizer = Adafactor(parameters_to_train, **cfg.optimizer.__dict__)
-    optimizer.state["step"] = step
+    optimizer.state["step"] = model.step
 
     scheduler = transformers.get_cosine_with_hard_restarts_schedule_with_warmup(
         optimizer,
@@ -107,7 +124,7 @@ def train(
             tokenizer=tokenizer,
         )
     finally:
-        save_checkpoint(cfg, optimizer.state["step"], model.soft_prompt_embeddings)
+        save_checkpoint(cfg, model.step, model.soft_prompt_embeddings)
         progress_bar.close()
 
 
@@ -121,6 +138,7 @@ def _inner_loop(
     scheduler: LambdaLR,
     progress_bar: tqdm,
 ):
+    eos_token_id = tokenizer.encode("### End")[0]
     num_text_tokens = len(training)
     max_block_start = num_text_tokens - cfg.training.block_size
 
@@ -129,7 +147,7 @@ def _inner_loop(
     for i in range(cfg.scheduler.num_training_steps):
         model.train()
 
-        acc_steps = _get_acc_steps(cfg, optimizer.state["step"])
+        acc_steps = _get_acc_steps(cfg, model.step)
 
         for _ in range(acc_steps):
             blocks = []
@@ -152,16 +170,35 @@ def _inner_loop(
         scheduler.step()
         optimizer.zero_grad()
 
-        optimizer.state["step"] += 1
+        model.step += 1
 
-        if optimizer.state["step"] % cfg.training.checkpoint_interval == 0:
-            save_checkpoint(cfg, optimizer.state["step"], model.soft_prompt_embeddings)
+        if model.step % cfg.training.checkpoint_interval == 0:
+            save_checkpoint(cfg, model.step, model.soft_prompt_embeddings)
 
-        if optimizer.state["step"] % cfg.training.eval_interval == 1 or i == 0:
+        if model.step % cfg.training.eval_interval == 1 or i == 0:
             model.eval()
             eval_loss = 0
 
             with torch.no_grad():
+                dolly_prompt = DOLLY_PROMPT_FORMAT.format(instruction=model.soft_prompt)
+                tokens = tokenizer.encode(dolly_prompt, return_tensors="pt").to(
+                    model.device
+                )
+                basic_output = model.generate(
+                    input_ids=tokens,
+                    pad_token_id=tokenizer.pad_token_id,
+                    max_new_tokens=256,
+                    top_p=0.92,
+                    do_sample=True,
+                    eos_token_id=eos_token_id,
+                )
+
+                text_result = tokenizer.decode(basic_output[0])
+                response = text_result.split(RESPONSE_KEY)[-1]
+                response = response.removesuffix(END_KEY).strip()
+
+                print(response)
+
                 for block in evaluation_blocks:
                     blocks_tensor = (
                         torch.LongTensor(block).unsqueeze(0).to(model.device)
@@ -186,7 +223,7 @@ def _inner_loop(
 
         progress_bar.set_postfix(
             {
-                "Model Step": optimizer.state["step"],
+                "Model Step": model.step,
                 "Eval Loss": f"{eval_loss:.5f}",
                 "Acc Steps": acc_steps,
                 "LR": lr,
@@ -278,7 +315,7 @@ def _regex_replace(s: str, regex, group, replacement):
 
 
 def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
-    base_embeddings = model.convert_token_to_embeddings(blocks)
+    base_embeddings = model.convert_tokens_to_embeddings(blocks)
 
     # TODO: Handle this directly with the get_token_embeddings function
     inputs_embeds = torch.cat(
