@@ -25,11 +25,15 @@ Config = config.Config
 def load_latest_checkpoint(cfg: Config):
     steps_dir = _get_steps_dir(cfg)
     checkpoint_ids = [int(item.stem) for item in steps_dir.glob("*.csv")]
+
+    if not checkpoint_ids:
+        raise FileNotFoundError("No checkpoints found")
+
     latest_checkpoint_id = max(checkpoint_ids)
 
     path = steps_dir / f"{latest_checkpoint_id}.csv"
 
-    return _load_embeddings_from_file(path)
+    return latest_checkpoint_id, _load_embeddings_from_file(path)
 
 
 def save_checkpoint(cfg: Config, step, embeddings: torch.Tensor):

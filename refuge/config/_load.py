@@ -35,21 +35,18 @@ class PromptConfig(SimpleNamespace):
     initializer: str
 
 
-class DatasetConfig(SimpleNamespace):
-    block_size: int
-
-
-class LoopConfig(SimpleNamespace):
+class TrainingConfig(SimpleNamespace):
     checkpoint_interval: int
     eval_interval: int
     eval_blocks: int
     base_acc_steps: int
     acc_doubling_rate: int
     plateau_steps: int
+    block_size: int
 
 
 class OptimizerConfig(SimpleNamespace):
-    learning_rate: float
+    lr: float
     beta1: float
     decay_rate: float
     weight_decay: float
@@ -67,8 +64,7 @@ class Config(SimpleNamespace):
     project: ProjectConfig
     model: ModelConfig
     prompt: PromptConfig
-    dataset: DatasetConfig
-    loop: LoopConfig
+    training: TrainingConfig
     optimizer: OptimizerConfig
     scheduler: SchedulerConfig
 
@@ -78,8 +74,7 @@ class Config(SimpleNamespace):
         self.project = ProjectConfig(**kwargs["project"])
         self.model = ModelConfig(**kwargs["model"])
         self.prompt = PromptConfig(**kwargs["prompt"])
-        self.dataset = DatasetConfig(**kwargs["dataset"])
-        self.loop = LoopConfig(**kwargs["loop"])
+        self.training = TrainingConfig(**kwargs["training"])
         self.optimizer = OptimizerConfig(**kwargs["optimizer"])
         self.scheduler = SchedulerConfig(**kwargs["scheduler"])
 

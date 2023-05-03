@@ -7,10 +7,8 @@ hugging_face_name = "databricks/dolly-v2-3b"
 [prompt]
 initializer = "A surreal children's fantasy story set in a subterranean world populated by peculiar anthropomorphic creatures.\n"
 
-[dataset]
+[training]
 block_size = 700
-
-[loop]
 checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 16
@@ -19,7 +17,7 @@ acc_doubling_rate = 0
 plateau_steps = 0
 
 [optimizer]
-learning_rate = 2e-4
+lr = 2e-4
 beta1 = 0.0
 decay_rate = -0.8
 weight_decay = 0.1
@@ -29,4 +27,4 @@ relative_step = false
 [scheduler]
 num_warmup_steps = 10
 num_cycles = 8
-num_training_steps = 20
+num_training_steps = 1000
