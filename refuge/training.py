@@ -26,12 +26,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 from transformers import Adafactor, GPTNeoXTokenizerFast
 
-from refuge._vendor.mkultra.tuning import GPTNeoXPromptTuningLM
-
 from . import config
 from ._checkpoints import load_latest_checkpoint, save_checkpoint
 from ._embeddings import get_embeddings
 from ._paths import TRAINING_DATA_DIR
+from .model import GPTNeoXPromptTuningLM
 
 Config = config.Config
 
