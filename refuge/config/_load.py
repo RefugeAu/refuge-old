@@ -72,10 +72,21 @@ class Config(SimpleNamespace):
     optimizer: OptimizerConfig
     scheduler: SchedulerConfig
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.project = ProjectConfig(**kwargs["project"])
+        self.model = ModelConfig(**kwargs["model"])
+        self.prompt = PromptConfig(**kwargs["prompt"])
+        self.dataset = DatasetConfig(**kwargs["dataset"])
+        self.loop = LoopConfig(**kwargs["loop"])
+        self.optimizer = OptimizerConfig(**kwargs["optimizer"])
+        self.scheduler = SchedulerConfig(**kwargs["scheduler"])
+
 
 def load_config():
     with open(DEFAULT, encoding="utf-8") as f:
-        cfg = Config(**tomlkit.load(f))
+        cfg = Config(**tomlkit.load(f).unwrap())
 
     return cfg
 

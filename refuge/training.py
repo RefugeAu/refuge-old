@@ -42,9 +42,11 @@ def main(cfg: Config):
         _create_alice_txt(training_data_path)
 
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(
-        cfg["project"]["model_name"], padding_side="left"
+        cfg.model.hugging_face_name, padding_side="left"
     )
-    model = GPTNeoXPromptTuningLM.from_pretrained(model_name, device_map="auto")
+    model = GPTNeoXPromptTuningLM.from_pretrained(
+        cfg.model.hugging_face_name, device_map="auto"
+    )
 
     model_base_name = config.get_model_base_name(cfg)
     project_checkpoint_dir = config.get_project_checkpoint_dir(cfg)
