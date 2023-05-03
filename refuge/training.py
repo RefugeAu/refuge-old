@@ -143,7 +143,7 @@ def _inner_loop(
 
 
 def _evaluate_model(model: GPTNeoXPromptTuningLM, block: list[int]):
-    input_ids = torch.LongTensor(block).unsqueeze(0)
+    input_ids = torch.LongTensor(block).unsqueeze(0).to(model.device)
 
     inputs_embeds = _cat_learned_embedding_to_input(model, input_ids)
     labels = _extend_labels(model, input_ids)
@@ -250,4 +250,6 @@ def _extend_labels(model: GPTNeoXPromptTuningLM, labels: torch.Tensor):
 
     # Add '-100's (prevent loss calculation where the learned embed would be)
     n_batches = lb.shape[0]
-    return torch.cat([torch.full((n_batches, n_tokens), -100), lb], dim=1)
+    return torch.cat(
+        [torch.full((n_batches, n_tokens), -100, device=model.device), lb], dim=1
+    )
