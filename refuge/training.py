@@ -62,6 +62,8 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
         optimizer, **cfg.scheduler.__dict__
     )
 
+    progress_bar = tqdm(total=cfg.scheduler.num_training_steps)
+
     try:
         _inner_loop(
             cfg=cfg,
@@ -70,9 +72,11 @@ def train(cfg: Config, tokenizer: GPTNeoXTokenizerFast, model: GPTNeoXPromptTuni
             evaluation_blocks=evaluation_blocks,
             optimizer=optimizer,
             scheduler=scheduler,
+            progress_bar=progress_bar,
         )
     finally:
         save_checkpoint(cfg, optimizer.state["step"], model.soft_prompt_embeddings)
+        progress_bar.close()
 
 
 def _inner_loop(
@@ -82,9 +86,8 @@ def _inner_loop(
     evaluation_blocks: list[list[int]],
     optimizer: Adafactor,
     scheduler: LambdaLR,
+    progress_bar: tqdm,
 ):
-    progress_bar = tqdm(total=cfg.scheduler.num_training_steps)
-
     num_text_tokens = len(training)
     max_block_start = num_text_tokens - cfg.training.block_size
 
