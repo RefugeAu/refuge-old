@@ -110,7 +110,8 @@ def _inner_loop(
                 block = training[block_start:block_end]
                 blocks.append(block)
 
-            outputs = _evaluate_model(model, blocks)
+            blocks_tensor = torch.LongTensor(blocks).to(model.device)
+            outputs = _evaluate_model(model, blocks_tensor)
 
             loss = outputs.loss
             loss.backward()
@@ -131,7 +132,10 @@ def _inner_loop(
 
             with torch.no_grad():
                 for block in evaluation_blocks:
-                    outputs = _evaluate_model(model, block)
+                    blocks_tensor = (
+                        torch.LongTensor(block).unsqueeze(0).to(model.device)
+                    )
+                    outputs = _evaluate_model(model, blocks_tensor)
 
                     eval_loss += outputs.loss.item()
 
@@ -149,11 +153,9 @@ def _inner_loop(
         progress_bar.update(1)
 
 
-def _evaluate_model(model: GPTNeoXPromptTuningLM, blocks: list[list[int]]):
-    input_ids = torch.LongTensor(blocks).to(model.device)
-
-    inputs_embeds = _cat_learned_embedding_to_input(model, input_ids)
-    labels = _extend_labels(model, input_ids)
+def _evaluate_model(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
+    inputs_embeds = _cat_learned_embedding_to_input(model, blocks)
+    labels = _extend_labels(model, blocks)
 
     outputs = model(
         inputs_embeds=inputs_embeds.to(model.device),
@@ -232,31 +234,27 @@ def _regex_replace(s: str, regex, group, replacement):
     return s
 
 
-def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, input_ids):
-    inputs_embeds = model.gpt_neox.embed_in(input_ids)
+def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
+    base_embeddings = model.get_token_embeddings(blocks)
 
-    if len(list(inputs_embeds.shape)) == 2:
-        ie = inputs_embeds.unsqueeze(0)
-    else:
-        ie = inputs_embeds
-
+    # TODO: Handle this directly with the get_token_embeddings function
     inputs_embeds = torch.cat(
-        [model.soft_prompt_parameter.repeat(ie.size(0), 1, 1), ie], dim=1
+        [
+            model.soft_prompt_parameter.repeat(base_embeddings.size(0), 1, 1),
+            base_embeddings,
+        ],
+        dim=1,
     )
 
     return inputs_embeds
 
 
-def _extend_labels(model: GPTNeoXPromptTuningLM, input_ids: torch.Tensor):
+def _extend_labels(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
     n_tokens = model.soft_prompt_parameter.shape[-2]
 
-    if len(list(input_ids.shape)) == 1:
-        lb = input_ids.unsqueeze(0)
-    else:
-        lb = input_ids
-
+    # TODO: Clean this up
     # Add '-100's (prevent loss calculation where the learned embed would be)
-    n_batches = lb.shape[0]
+    n_batches = blocks.shape[0]
     return torch.cat(
-        [torch.full((n_batches, n_tokens), -100, device=model.device), lb], dim=1
+        [torch.full((n_batches, n_tokens), -100, device=model.device), blocks], dim=1
     )

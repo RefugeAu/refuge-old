@@ -55,3 +55,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
     @torch.no_grad()
     def generate(self, *args, **kwargs):
         return super().generate(*args, **kwargs)
+
+    # TODO: Add custom tokens here, also add custom tokens to the tokenizer
+    def get_token_embeddings(self, tokens: torch.Tensor) -> torch.Tensor:
+        return self.gpt_neox.embed_in(tokens)
