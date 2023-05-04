@@ -42,8 +42,8 @@ def get_tokenizer_and_model(cfg: Config):
         cfg.model.hugging_face_name, padding_side="left"
     )
     model: GPTNeoXPromptTuningLM = GPTNeoXPromptTuningLM.from_pretrained(
-        cfg.model.hugging_face_name
-    ).to("cuda:0")
+        cfg.model.hugging_face_name, device_map="auto"
+    )
 
     try:
         step, model.soft_prompt_embeddings = load_latest_checkpoint(cfg)
@@ -132,15 +132,16 @@ def _inner_loop(
     eval_loss = torch.inf
 
     for i in range(cfg.scheduler.num_training_steps):
+        accumulated_loss = 0
         model.train()
 
         acc_steps = _get_acc_steps(cfg, model.step)
 
         for i in range(acc_steps):
-            if i == 0:
-                model.run_soft_prompt_loss = True
-            else:
-                model.run_soft_prompt_loss = False
+            # if i == 0:
+            #     model.run_soft_prompt_loss = True
+            # else:
+            #     model.run_soft_prompt_loss = False
 
             blocks = []
             for _ in range(cfg.training.batch_size):
@@ -156,6 +157,8 @@ def _inner_loop(
             loss = outputs.loss
             assert loss is not None
             loss.backward()
+
+            accumulated_loss += loss.detach()
 
         optimizer.step()
         lr = optimizer.param_groups[0]["lr"]
@@ -189,6 +192,7 @@ def _inner_loop(
         progress_bar.set_postfix(
             {
                 "Model Step": model.step,
+                "Loss": f"{accumulated_loss / cfg.training.base_acc_steps:.5f}",
                 "Eval Loss": f"{eval_loss:.5f}",
                 "Acc Steps": acc_steps,
                 "LR": lr,
