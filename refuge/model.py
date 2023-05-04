@@ -105,7 +105,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         input_ids: torch.Tensor,
         past_key_values=None,
         attention_mask=None,
-        **kwargs
+        **kwargs,
     ):
         # cut decoder_input_ids if past is used
         if past_key_values and past_key_values[0] is not None:
@@ -217,26 +217,32 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
             max_token_affinity, target_max_token_affinity
         )
 
-        soft_prompt_token_ids = max_token_results.indices
+        # soft_prompt_token_ids = max_token_results.indices.unsqueeze(0)
 
-        soft_prompt_results = cast(
-            CausalLMOutputWithPast,
-            super().forward(
-                input_ids=soft_prompt_token_ids, labels=soft_prompt_token_ids
-            ),
-        )
+        # soft_prompt_results = cast(
+        #     CausalLMOutputWithPast,
+        #     super().forward(
+        #         input_ids=soft_prompt_token_ids, labels=soft_prompt_token_ids
+        #     ),
+        # )
 
-        one_hot = nn.functional.one_hot(soft_prompt_token_ids, num_classes=50280)
-        selected = torch.diag(one_hot @ soft_prompt_results.logits[0, ...].T)
-        likelihood_of_prompt = nn.functional.sigmoid(selected)
-        target_likelihood = torch.ones_like(likelihood_of_prompt)
+        # one_hot = nn.functional.one_hot(
+        #     soft_prompt_token_ids[0, ...], num_classes=50280
+        # ).float()
+        # selected = torch.diag(one_hot @ soft_prompt_results.logits[0, ...].T)
+        # likelihood_of_prompt = nn.functional.sigmoid(selected)
+        # target_likelihood = torch.ones_like(likelihood_of_prompt)
 
-        prompt_likelihood_loss_function = nn.BCELoss()
-        prompt_likelihood_loss: torch.Tensor = prompt_likelihood_loss_function(
-            likelihood_of_prompt, target_likelihood
-        )
+        # prompt_likelihood_loss_function = nn.BCELoss()
+        # prompt_likelihood_loss: torch.Tensor = 100 * prompt_likelihood_loss_function(
+        #     likelihood_of_prompt, target_likelihood
+        # )
 
-        combined_loss = results.loss + token_affinity_loss + prompt_likelihood_loss
+        combined_loss = results.loss + token_affinity_loss  # + prompt_likelihood_loss
+
+        # print(
+        #     f"Original loss: {results.loss} | Token affinity loss: {token_affinity_loss} | Prompt likelihood loss: {prompt_likelihood_loss}"
+        # )
 
         results.loss = cast(torch.FloatTensor, combined_loss)
 

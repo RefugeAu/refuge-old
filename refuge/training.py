@@ -155,9 +155,6 @@ def _inner_loop(
 
             loss = outputs.loss
             assert loss is not None
-
-            print(outputs.logits.shape)
-
             loss.backward()
 
         optimizer.step()
@@ -298,11 +295,12 @@ def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.
 
 
 def _extend_labels(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
-    n_tokens = model.soft_prompt_parameter.shape[-2]
-
-    # TODO: Clean this up
-    # Add '-100's (prevent loss calculation where the learned embed would be)
-    n_batches = blocks.shape[0]
-    return torch.cat(
-        [torch.full((n_batches, n_tokens), -100, device=model.device), blocks], dim=1
+    labels = torch.cat(
+        [
+            model.translated_soft_prompt().repeat(blocks.size(0), 1),
+            blocks,
+        ],
+        dim=1,
     )
+
+    return labels
