@@ -54,7 +54,7 @@ def _save_embeddings_to_file(embeddings: torch.Tensor, path: pathlib.Path):
 
 
 def _get_steps_dir(cfg: Config):
-    path = config.get_project_checkpoint_dir(cfg) / "steps"
+    path = config.get_project_checkpoint_dir(cfg)
     path.mkdir(exist_ok=True, parents=True)
 
     return path

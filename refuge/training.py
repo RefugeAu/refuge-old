@@ -31,23 +31,10 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from . import config
 from ._checkpoints import load_latest_checkpoint, save_checkpoint
 from ._embeddings import get_embeddings
-from ._paths import TRAINING_DATA_DIR
+from ._paths import DATA_DIR
 from .model import GPTNeoXPromptTuningLM
 
 Config = config.Config
-
-INTRO_BLURB = "Below is an instruction that describes a task. Write a response that appropriately completes the request."
-INSTRUCTION_KEY = "### Instruction:"
-RESPONSE_KEY = "### Response:"
-END_KEY = "### End"
-
-DOLLY_PROMPT_FORMAT = f"""{INTRO_BLURB}
-
-{INSTRUCTION_KEY}
-{"{instruction}"}
-
-{RESPONSE_KEY}
-"""
 
 
 def get_tokenizer_model_tokens_and_step(cfg: Config):
@@ -138,7 +125,6 @@ def _inner_loop(
     scheduler: LambdaLR,
     progress_bar: tqdm,
 ):
-    eos_token_id = tokenizer.encode("### End")[0]
     num_text_tokens = len(training)
     max_block_start = num_text_tokens - cfg.training.block_size
 
@@ -188,16 +174,6 @@ def _inner_loop(
                     )
                     outputs = _evaluate_model(model, blocks_tensor)
 
-                    # tokens = model.convert_logits_to_tokens(outputs.logits[0, 22:, :])
-
-                    # print("---")
-                    # print("Input")
-                    # print(tokenizer.decode(block))
-                    # print("---")
-                    # print("Output")
-                    # print(tokenizer.decode(tokens))
-                    # print("---")
-
                     loss = outputs.loss
                     assert loss is not None
                     eval_loss += loss.item()
@@ -240,7 +216,7 @@ def _get_acc_steps(cfg: Config, sp_step):
 
 def _get_tokenized_text(cfg: Config, tokenizer: GPTNeoXTokenizerFast) -> list[int]:
     model_base_name = config.get_model_base_name(cfg)
-    path = TRAINING_DATA_DIR / f"alice-tokenized-{model_base_name}.json"
+    path = DATA_DIR / f"alice-tokenized-{model_base_name}.json"
 
     try:
         with open(path, encoding="utf-8") as f:
@@ -258,7 +234,7 @@ def _get_tokenized_text(cfg: Config, tokenizer: GPTNeoXTokenizerFast) -> list[in
 
 
 def _get_raw_text():
-    path = TRAINING_DATA_DIR / "alice.txt"
+    path = DATA_DIR / "alice.txt"
 
     try:
         with open(path, encoding="utf-8") as f:

@@ -17,11 +17,10 @@ import pathlib
 
 LIB = pathlib.Path(__file__).parent
 
-REFUGE_DIR = pathlib.Path().home() / ".refuge"
+EXAMPLES_DIR = LIB / "examples"
 
-DATA_DIR = REFUGE_DIR / "data"
-TRAINING_DATA_DIR = DATA_DIR / "training"
-TRAINING_DATA_DIR.mkdir(exist_ok=True, parents=True)
+DATA_DIR = EXAMPLES_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True, parents=True)
 
-CHECKPOINTS_DIR = REFUGE_DIR / "checkpoints"
+CHECKPOINTS_DIR = EXAMPLES_DIR / "checkpoints"
 CHECKPOINTS_DIR.mkdir(exist_ok=True, parents=True)

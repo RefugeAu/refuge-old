@@ -37,6 +37,7 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": false,
     "files.watcherExclude": {
+      "**/.venv/**": true,
       "**/.git/objects/**": true,
       "**/.git/subtree-cache/**": true,
       "**/node_modules/*/**": true,
@@ -185,6 +186,7 @@
       "Mesenteric",
       "Meshach",
       "Michaël",
+      "modeling",
       "msecs",
       "Musc",
       "myst",
@@ -201,6 +203,7 @@
       "openai",
       "openapi",
       "openapitools",
+      "optim",
       "Oropharynx",
       "outdir",
       "pantsbuild",
