@@ -136,7 +136,12 @@ def _inner_loop(
 
         acc_steps = _get_acc_steps(cfg, model.step)
 
-        for _ in range(acc_steps):
+        for i in range(acc_steps):
+            if i == 0:
+                model.run_soft_prompt_loss = True
+            else:
+                model.run_soft_prompt_loss = False
+
             blocks = []
             for _ in range(cfg.training.batch_size):
                 block_start = random.randint(0, max_block_start)
@@ -150,6 +155,9 @@ def _inner_loop(
 
             loss = outputs.loss
             assert loss is not None
+
+            print(outputs.logits.shape)
+
             loss.backward()
 
         optimizer.step()

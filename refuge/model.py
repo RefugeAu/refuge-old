@@ -27,6 +27,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         self._soft_prompt_parameter = None
         self._step = None
         self._soft_tokens = None
+        self.run_soft_prompt_loss = False
 
         super().__init__(config)
 
@@ -143,18 +144,18 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
 
     def cosine_similarity(self, embeddings: torch.Tensor) -> torch.Tensor:
         embeddings_transposed = embeddings.T
-        normalized_embedding_transposed = torch.linalg.norm(
+        embedding_normalisation_factor = torch.linalg.norm(
             embeddings_transposed, dim=0, keepdim=True
         )
 
         embedding_layer = cast(nn.Embedding, self.gpt_neox.embed_in)
-        normalized_weights = torch.linalg.norm(
+        weights_normalisation_factor = torch.linalg.norm(
             embedding_layer.weight, dim=1, keepdim=True
         )
 
         cosine_similarities = (
             (embedding_layer.weight @ embeddings_transposed)
-            / (normalized_weights @ normalized_embedding_transposed)
+            / (weights_normalisation_factor @ embedding_normalisation_factor)
         ).T
 
         return cosine_similarities
@@ -183,29 +184,32 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ):
-        results = super().forward(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            inputs_embeds=inputs_embeds,
-            head_mask=head_mask,
-            past_key_values=past_key_values,
-            labels=labels,
-            use_cache=use_cache,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
+        results = cast(
+            CausalLMOutputWithPast,
+            super().forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                inputs_embeds=inputs_embeds,
+                head_mask=head_mask,
+                past_key_values=past_key_values,
+                labels=labels,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            ),
         )
 
-        results = cast(CausalLMOutputWithPast, results)
-
-        if results.loss is None:
+        if results.loss is None or not self.run_soft_prompt_loss:
             return results
 
         cosine_similarities = self.cosine_similarity(self.soft_prompt_parameter)
-        max_token_affinity = cast(
-            torch.Tensor, torch.max(cosine_similarities, dim=1).values - 1e-5
-        ).to(self.device)
+
+        max_token_results = torch.max(cosine_similarities, dim=1)
+        max_token_affinity = cast(torch.Tensor, max_token_results.values - 1e-5).to(
+            self.device
+        )
         target_max_token_affinity = torch.ones_like(max_token_affinity)
 
         token_affinity_loss_function = nn.BCELoss()
@@ -213,7 +217,26 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
             max_token_affinity, target_max_token_affinity
         )
 
-        combined_loss = results.loss + token_affinity_loss
+        soft_prompt_token_ids = max_token_results.indices
+
+        soft_prompt_results = cast(
+            CausalLMOutputWithPast,
+            super().forward(
+                input_ids=soft_prompt_token_ids, labels=soft_prompt_token_ids
+            ),
+        )
+
+        one_hot = nn.functional.one_hot(soft_prompt_token_ids, num_classes=50280)
+        selected = torch.diag(one_hot @ soft_prompt_results.logits[0, ...].T)
+        likelihood_of_prompt = nn.functional.sigmoid(selected)
+        target_likelihood = torch.ones_like(likelihood_of_prompt)
+
+        prompt_likelihood_loss_function = nn.BCELoss()
+        prompt_likelihood_loss: torch.Tensor = prompt_likelihood_loss_function(
+            likelihood_of_prompt, target_likelihood
+        )
+
+        combined_loss = results.loss + token_affinity_loss + prompt_likelihood_loss
 
         results.loss = cast(torch.FloatTensor, combined_loss)
 
