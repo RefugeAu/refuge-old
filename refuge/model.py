@@ -186,7 +186,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
     ):
         results = cast(
             CausalLMOutputWithPast,
-            super().forward(
+            self._patched_forward(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
@@ -247,3 +247,68 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
         results.loss = cast(torch.FloatTensor, combined_loss)
 
         return results
+
+    def _patched_forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[tuple[tuple[torch.FloatTensor]]] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> tuple | CausalLMOutputWithPast:
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
+
+        outputs = self.gpt_neox(
+            input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            past_key_values=past_key_values,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        hidden_states = outputs[0]
+        lm_logits = self.embed_out(hidden_states)
+
+        lm_loss = None
+        if labels is not None:
+            # move labels to correct device to enable model parallelism
+            labels = labels.to(lm_logits.device)
+            # we are doing next-token prediction; shift prediction scores and input ids by one
+            shift_logits = lm_logits[:, :-1, :].contiguous()
+            labels = labels[:, 1:].contiguous()
+            predicted = shift_logits.view(-1, shift_logits.size(-1))
+            target = labels.view(-1)
+
+            # TODO: Improve this custom value of 100
+            weight = torch.ones_like(target).float()
+            weight[0 : len(self._soft_tokens) - 1] = 100
+
+            loss_fct = nn.modules.loss.CrossEntropyLoss(reduction="none")
+            per_token_loss = loss_fct(predicted, target)
+
+            lm_loss = torch.mean(per_token_loss * weight)
+
+        if not return_dict:
+            output = (lm_logits,) + outputs[1:]
+            return ((lm_loss,) + output) if lm_loss is not None else output
+
+        return CausalLMOutputWithPast(
+            loss=lm_loss,
+            logits=lm_logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
