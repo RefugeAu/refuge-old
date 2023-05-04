@@ -27,6 +27,11 @@ class ProjectConfig(SimpleNamespace):
     name: str
 
 
+class DataConfig(SimpleNamespace):
+    name: str
+    url: str
+
+
 class ModelConfig(SimpleNamespace):
     hugging_face_name: str
 
@@ -63,6 +68,7 @@ class SchedulerConfig(SimpleNamespace):
 
 class Config(SimpleNamespace):
     project: ProjectConfig
+    data: DataConfig
     model: ModelConfig
     prompt: PromptConfig
     training: TrainingConfig
@@ -73,6 +79,7 @@ class Config(SimpleNamespace):
         super().__init__(**kwargs)
 
         self.project = ProjectConfig(**kwargs["project"])
+        self.data = DataConfig(**kwargs["data"])
         self.model = ModelConfig(**kwargs["model"])
         self.prompt = PromptConfig(**kwargs["prompt"])
         self.training = TrainingConfig(**kwargs["training"])

@@ -226,7 +226,7 @@ def _get_acc_steps(cfg: Config, sp_step):
 
 def _get_tokenized_text(cfg: Config, tokenizer: GPTNeoXTokenizerFast) -> list[int]:
     model_base_name = config.get_model_base_name(cfg)
-    path = DATA_DIR / f"alice-tokenized-{model_base_name}.json"
+    path = DATA_DIR / f"{cfg.data.name}-tokenized-{model_base_name}.json"
 
     try:
         with open(path, encoding="utf-8") as f:
@@ -234,7 +234,7 @@ def _get_tokenized_text(cfg: Config, tokenizer: GPTNeoXTokenizerFast) -> list[in
     except FileNotFoundError:
         pass
 
-    text = _get_raw_text()
+    text = _get_raw_text(cfg)
     tokens = tokenizer.encode(text)
 
     with open(path, "w", encoding="utf-8") as f:
@@ -243,8 +243,8 @@ def _get_tokenized_text(cfg: Config, tokenizer: GPTNeoXTokenizerFast) -> list[in
     return tokens
 
 
-def _get_raw_text():
-    path = DATA_DIR / "alice.txt"
+def _get_raw_text(cfg: Config):
+    path = DATA_DIR / f"{cfg.data.name}.txt"
 
     try:
         with open(path, encoding="utf-8") as f:
@@ -254,9 +254,7 @@ def _get_raw_text():
     except FileNotFoundError:
         pass
 
-    data_str = requests.get(
-        "https://www.gutenberg.org/files/11/11-0.txt", timeout=60
-    ).content.decode("utf-8")
+    data_str = requests.get(cfg.data.url, timeout=60).content.decode("utf-8")
     clean_data_str = data_str
 
     clean_data_str = _regex_replace(clean_data_str, r"\r", 0, "")
@@ -264,7 +262,7 @@ def _get_raw_text():
     clean_data_str = _regex_replace(clean_data_str, r"\u201C", 0, '"')
     clean_data_str = _regex_replace(clean_data_str, r"\u201D", 0, '"')
     clean_data_str = _regex_replace(clean_data_str, r"_", 0, "")
-    clean_data_str = clean_data_str[1434:-18595]
+    clean_data_str = clean_data_str[2002:-18977]
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(clean_data_str)

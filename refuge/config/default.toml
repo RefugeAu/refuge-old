@@ -1,11 +1,15 @@
 [project]
-name = "alice"
+name = "george"
+
+[data]
+name = "unspoken-sermons"
+url = "https://www.gutenberg.org/cache/epub/9057/pg9057.txt"
 
 [model]
 hugging_face_name = "databricks/dolly-v2-3b"
 
 [prompt]
-initializer = "Write an exerpt of a surreal children's fantasy story set in a subterranean world populated by peculiar anthropomorphic creatures. Go!\n\n"
+initializer = "Write an exerpt from George MacDonald's book, Unspoken Sermons. It's available on Project Gutenburg. Go!\n\n"
 
 [training]
 block_size = 2000
@@ -18,7 +22,7 @@ acc_doubling_rate = 0
 plateau_steps = 0
 
 [optimizer]
-lr = 1
+lr = 0.1
 beta1 = 0.0
 decay_rate = -0.8
 weight_decay = 0.1
