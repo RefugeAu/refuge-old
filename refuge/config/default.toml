@@ -1,5 +1,5 @@
 [project]
-name = "alice-v2"
+name = "alice"
 
 [model]
 hugging_face_name = "databricks/dolly-v2-3b"
@@ -18,7 +18,7 @@ acc_doubling_rate = 0
 plateau_steps = 0
 
 [optimizer]
-lr = 1e-1
+lr = 1e-2
 beta1 = 0.0
 decay_rate = -0.8
 weight_decay = 0.1
@@ -28,4 +28,4 @@ relative_step = false
 [scheduler]
 num_warmup_steps = 0
 num_cycles = 8
-num_training_steps = 6000
+num_training_steps = 100

@@ -48,6 +48,7 @@ def get_tokenizer_model_tokens_and_step(cfg: Config):
     try:
         step, model.soft_prompt_embeddings = load_latest_checkpoint(cfg)
     except FileNotFoundError:
+        print("No checkpoint found, starting from scratch.")
         step = 0
         model.soft_prompt_embeddings = get_embeddings(
             tokenizer, model, cfg.prompt.initializer

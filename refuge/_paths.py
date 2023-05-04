@@ -16,8 +16,9 @@
 import pathlib
 
 LIB = pathlib.Path(__file__).parent
+REPO = LIB.parent
 
-EXAMPLES_DIR = LIB / "examples"
+EXAMPLES_DIR = REPO / "example"
 
 DATA_DIR = EXAMPLES_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True, parents=True)

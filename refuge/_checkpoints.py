@@ -33,6 +33,8 @@ def load_latest_checkpoint(cfg: Config):
 
     path = steps_dir / f"{latest_checkpoint_id}.csv"
 
+    print(f"Loading checkpoint from {path}")
+
     return latest_checkpoint_id, _load_embeddings_from_file(path)
 
 
