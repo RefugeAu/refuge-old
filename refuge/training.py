@@ -167,6 +167,8 @@ def _inner_loop(
 
         model.step += 1
 
+        print(tokenizer.decode(model.translated_soft_prompt()).strip())
+
         if model.step % cfg.training.checkpoint_interval == 0:
             save_checkpoint(cfg, model.step, model.soft_prompt_embeddings)
 
@@ -175,8 +177,6 @@ def _inner_loop(
             eval_loss = 0
 
             with torch.no_grad():
-                print(tokenizer.decode(model.translated_soft_prompt()).strip())
-
                 for block in evaluation_blocks:
                     blocks_tensor = (
                         torch.LongTensor(block).unsqueeze(0).to(model.device)
@@ -255,30 +255,17 @@ def _get_raw_text(cfg: Config):
         pass
 
     data_str = requests.get(cfg.data.url, timeout=60).content.decode("utf-8")
-    clean_data_str = data_str
 
-    clean_data_str = _regex_replace(clean_data_str, r"\r", 0, "")
-    clean_data_str = _regex_replace(clean_data_str, r"\S(\n)\S", 1, " ")
-    clean_data_str = _regex_replace(clean_data_str, r"\u201C", 0, '"')
-    clean_data_str = _regex_replace(clean_data_str, r"\u201D", 0, '"')
-    clean_data_str = _regex_replace(clean_data_str, r"_", 0, "")
-    clean_data_str = clean_data_str[2002:-18977]
+    start_index = data_str.index(cfg.data.start)
+    end_index = data_str.index(cfg.data.end) + len(cfg.data.end)
+
+    inner_data = data_str[start_index:end_index]
+    inner_data = inner_data.strip() + "\n"
 
     with open(path, "w", encoding="utf-8") as f:
-        f.write(clean_data_str)
+        f.write(inner_data)
 
-    return clean_data_str
-
-
-def _regex_replace(s: str, regex, group, replacement):
-    pat = re.compile(regex)
-    while True:
-        m = pat.search(s)
-        if m is not None:
-            s = s[: m.start(group)] + replacement + s[m.end(group) :]
-        else:
-            break
-    return s
+    return inner_data
 
 
 def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
@@ -296,13 +283,24 @@ def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.
     return inputs_embeds
 
 
-def _extend_labels(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
-    labels = torch.cat(
-        [
-            model.translated_soft_prompt().repeat(blocks.size(0), 1),
-            blocks,
-        ],
-        dim=1,
-    )
+# def _extend_labels(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
+#     labels = torch.cat(
+#         [
+#             model.translated_soft_prompt().repeat(blocks.size(0), 1),
+#             blocks,
+#         ],
+#         dim=1,
+#     )
 
-    return labels
+#     return labels
+
+
+def _extend_labels(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
+    n_tokens = model.soft_prompt_parameter.shape[-2]
+
+    # TODO: Clean this up
+    # Add '-100's (prevent loss calculation where the learned embed would be)
+    n_batches = blocks.shape[0]
+    return torch.cat(
+        [torch.full((n_batches, n_tokens), -100, device=model.device), blocks], dim=1
+    )

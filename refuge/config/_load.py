@@ -30,6 +30,8 @@ class ProjectConfig(SimpleNamespace):
 class DataConfig(SimpleNamespace):
     name: str
     url: str
+    start: str
+    end: str
 
 
 class ModelConfig(SimpleNamespace):
