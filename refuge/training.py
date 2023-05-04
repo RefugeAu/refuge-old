@@ -42,8 +42,8 @@ def get_tokenizer_and_model(cfg: Config):
         cfg.model.hugging_face_name, padding_side="left"
     )
     model: GPTNeoXPromptTuningLM = GPTNeoXPromptTuningLM.from_pretrained(
-        cfg.model.hugging_face_name, device_map="auto"
-    )
+        cfg.model.hugging_face_name
+    ).to("cuda:0")
 
     try:
         step, model.soft_prompt_embeddings = load_latest_checkpoint(cfg)

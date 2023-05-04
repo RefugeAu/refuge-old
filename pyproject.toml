@@ -19,6 +19,7 @@ matplotlib = "*"
 numpy = "*"
 pandas = "*"
 tomlkit = "*"
+transformer-lens = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"

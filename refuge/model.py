@@ -14,12 +14,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-from typing import cast
+from typing import Optional, cast
 
 import torch
 from torch import nn
-from torch.nn.functional import cosine_similarity
 from transformers import GPTNeoXForCausalLM
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 
 class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
@@ -141,7 +141,7 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
 
         return model_inputs
 
-    def convert_embeddings_to_token(self, embeddings: torch.Tensor) -> torch.Tensor:
+    def cosine_similarity(self, embeddings: torch.Tensor) -> torch.Tensor:
         embeddings_transposed = embeddings.T
         normalized_embedding_transposed = torch.linalg.norm(
             embeddings_transposed, dim=0, keepdim=True
@@ -157,9 +157,64 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
             / (normalized_weights @ normalized_embedding_transposed)
         ).T
 
+        return cosine_similarities
+
+    def convert_embeddings_to_token(self, embeddings: torch.Tensor) -> torch.Tensor:
+        cosine_similarities = self.cosine_similarity(embeddings)
+
         token_indices = torch.argmax(cosine_similarities, dim=1)
 
         return token_indices
 
     def translated_soft_prompt(self):
         return self.convert_embeddings_to_token(self.soft_prompt_embeddings)
+
+    def forward(
+        self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        past_key_values: Optional[tuple[tuple[torch.FloatTensor]]] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ):
+        results = super().forward(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            inputs_embeds=inputs_embeds,
+            head_mask=head_mask,
+            past_key_values=past_key_values,
+            labels=labels,
+            use_cache=use_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        results = cast(CausalLMOutputWithPast, results)
+
+        if results.loss is None:
+            return results
+
+        cosine_similarities = self.cosine_similarity(self.soft_prompt_parameter)
+        max_token_affinity = cast(
+            torch.Tensor, torch.max(cosine_similarities, dim=1).values - 1e-5
+        ).to(self.device)
+        target_max_token_affinity = torch.ones_like(max_token_affinity)
+
+        token_affinity_loss_function = nn.BCELoss()
+        token_affinity_loss: torch.Tensor = token_affinity_loss_function(
+            max_token_affinity, target_max_token_affinity
+        )
+
+        combined_loss = results.loss + token_affinity_loss
+
+        results.loss = cast(torch.FloatTensor, combined_loss)
+
+        return results
