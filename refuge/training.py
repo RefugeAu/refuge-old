@@ -37,7 +37,7 @@ from .model import GPTNeoXPromptTuningLM
 Config = config.Config
 
 
-def get_tokenizer_model_tokens_and_step(cfg: Config):
+def get_tokenizer_and_model(cfg: Config):
     tokenizer: GPTNeoXTokenizerFast = GPTNeoXTokenizerFast.from_pretrained(
         cfg.model.hugging_face_name, padding_side="left"
     )
