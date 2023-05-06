@@ -1,20 +1,16 @@
 [project]
-name = "george"
-
-[data]
-name = "unspoken-sermons"
-url = "https://www.gutenberg.org/cache/epub/9057/pg9057.txt"
-start = "UNSPOKEN SERMONS FIRST SERIES"
-end = "END OF THE THIRD SERIES."
+name = "addition"
 
 [model]
 hugging_face_name = "databricks/dolly-v2-3b"
 
+[data]
+
 [prompt]
-initializer = "Write an exerpt from George MacDonald's book, Unspoken Sermons. It's available on Project Gutenburg. Go!\n\n"
+initializer = "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23"
 
 [training]
-block_size = 1800
+block_size = 300
 checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 1

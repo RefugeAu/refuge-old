@@ -82,7 +82,9 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
     def generate(self, *args, **kwargs):
         return super().generate(*args, **kwargs)
 
-    def convert_tokens_to_embeddings(self, tokens: torch.Tensor) -> torch.Tensor:
+    def convert_tokens_to_embeddings(
+        self, tokens: torch.Tensor, trainable=False
+    ) -> torch.Tensor:
         soft_token_mask = tokens >= self.config.vocab_size
         masked_tokens = tokens.clone()
         masked_tokens[soft_token_mask] = 0
@@ -92,7 +94,11 @@ class GPTNeoXPromptTuningLM(GPTNeoXForCausalLM):
 
         soft_token_idx = tokens[soft_token_mask] - self.config.vocab_size
 
-        soft_embedding = self.soft_prompt_embeddings[soft_token_idx]
+        if trainable:
+            soft_embedding = self.soft_prompt_parameter[soft_token_idx]
+        else:
+            soft_embedding = self.soft_prompt_embeddings[soft_token_idx]
+
         embedding[soft_token_mask] = soft_embedding
 
         return embedding
