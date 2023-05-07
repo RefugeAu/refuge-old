@@ -146,6 +146,8 @@ def _inner_loop(
 
     # eval_loss = torch.inf
 
+    response_token = tokenizer.encode("### Response:")[0]
+
     for i in range(cfg.scheduler.num_training_steps):
         accumulated_loss = 0
         model.train()
@@ -162,18 +164,22 @@ def _inner_loop(
 
             blocks = []
             for _ in range(cfg.training.batch_size):
-                a = random.randint(1, 99)
-                b = random.randint(1, 99)
+                a = random.randint(0, 999)
+                b = random.randint(0, 999)
                 c = a + b
 
-                block = tokenizer.encode(f"{model.soft_prompt}; {a} + {b} = {c};")
+                block = tokenizer.encode(
+                    "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n"
+                    "### Instruction:\n" + model.soft_prompt + f"\n{a} + {b}\n\n"
+                    "### Response:\n" + str(c) + "\n\n### End"
+                )
 
                 blocks.append(block)
 
             accumulation_blocks.append(blocks)
 
         optimizer.forward_backward_func = lambda: gsam_forwards_and_backwards(
-            optimizer, model, accumulation_blocks
+            optimizer, model, accumulation_blocks, response_token
         )
         _predictions, accumulated_loss = optimizer.step()
         lr_scheduler.step()
@@ -225,9 +231,11 @@ def _inner_loop(
         progress_bar.update(1)
 
 
-def _get_inputs_and_targets(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
+def _get_inputs_and_targets(
+    model: GPTNeoXPromptTuningLM, blocks: torch.Tensor, response_token: int
+):
     inputs = _cat_learned_embedding_to_input(model, blocks)
-    targets = _extend_labels(model, blocks)
+    targets = _extend_labels(model, blocks, response_token)
 
     return inputs.to(model.device), targets.to(model.device)
 
@@ -242,14 +250,16 @@ def _get_acc_steps(cfg: Config, sp_step):
     return cfg.training.base_acc_steps
 
 
-def gsam_forwards_and_backwards(optimizer, model, accumulation_blocks):
+def gsam_forwards_and_backwards(optimizer, model, accumulation_blocks, response_token):
     optimizer.base_optimizer.zero_grad()
 
     with torch.enable_grad():
         loss = None
         for blocks in accumulation_blocks:
             blocks_tensor = torch.LongTensor(blocks).to(model.device)
-            inputs, targets = _get_inputs_and_targets(model, blocks_tensor)
+            inputs, targets = _get_inputs_and_targets(
+                model, blocks_tensor, response_token
+            )
 
             outputs: CausalLMOutputWithPast = model(
                 inputs_embeds=inputs,
@@ -316,11 +326,19 @@ def _cat_learned_embedding_to_input(model: GPTNeoXPromptTuningLM, blocks: torch.
     return embeddings
 
 
-def _extend_labels(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
-    soft_prompt_mask = blocks >= model.config.vocab_size
+def _extend_labels(
+    model: GPTNeoXPromptTuningLM, blocks: torch.Tensor, response_token: int
+):
+    # soft_prompt_mask = blocks >= model.config.vocab_size
+
+    assert blocks.shape[0] == 1
+    response_index = torch.max((blocks[0, :] == response_token).nonzero())
+
     masked_blocks = blocks.clone()
 
     # Prevents loss calculation on the soft prompt tokens
-    masked_blocks[soft_prompt_mask] = -100
+    # masked_blocks[soft_prompt_mask] = -100
+
+    masked_blocks[0, 0:response_index] = -100
 
     return masked_blocks

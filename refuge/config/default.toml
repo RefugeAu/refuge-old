@@ -1,13 +1,13 @@
 [project]
-name = "addition"
+name = "addition-single-token"
 
 [model]
-hugging_face_name = "EleutherAI/pythia-410m-deduped"
+hugging_face_name = "databricks/dolly-v2-3b"
 
 [data]
 
 [prompt]
-initializer = "10 + 10 = 20; 15 + 16 = 31"
+initializer = "Add"
 
 [training]
 block_size = 300
@@ -15,7 +15,7 @@ checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 1
 batch_size = 1
-base_acc_steps = 512
+base_acc_steps = 250
 acc_doubling_rate = 0
 plateau_steps = 0
 
