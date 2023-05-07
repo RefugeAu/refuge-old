@@ -213,13 +213,13 @@ class GSAM(Optimizer, BaseOptimizer):
         get_grad = closure if closure else self.forward_backward_func
 
         with self.maybe_no_sync():
-            outputs, loss = get_grad(retain_graph=True)
+            outputs, loss = get_grad()
 
             self.perturb_weights(rho=self.rho_t)
 
             disable_running_stats(self.model)
 
-            get_grad(retain_graph=False)
+            get_grad()
 
             self.gradient_decompose(self.alpha)
 
@@ -232,6 +232,9 @@ class GSAM(Optimizer, BaseOptimizer):
         enable_running_stats(self.model)
 
         return outputs, loss
+
+    # def step_base_optimisaer(self):
+    #     self.base_optimizer.step()
 
     def load_state_dict(self, state_dict: Dict):
         super().load_state_dict(state_dict)

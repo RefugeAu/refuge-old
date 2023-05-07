@@ -150,6 +150,8 @@ def _inner_loop(
 
         acc_steps = _get_acc_steps(cfg, model.step)
 
+        accumulation_blocks = []
+
         for i in range(acc_steps):
             # if i == 0:
             #     model.run_soft_prompt_loss = True
@@ -160,7 +162,7 @@ def _inner_loop(
             for _ in range(cfg.training.batch_size):
                 num_digits = random.randint(1, 6)
                 soft_prompt_for_this_block = "".join(
-                    f"<|{i}|>" for i in range(num_digits)
+                    f"<|{i}|>" for i in range(num_digits * 4)
                 )
                 a = random.randint(10 ** (num_digits - 1), 10**num_digits - 1)
                 b = random.randint(10 ** (num_digits - 1), 10**num_digits - 1)
@@ -176,29 +178,16 @@ def _inner_loop(
 
                 blocks.append(block)
 
-            blocks_tensor = torch.LongTensor(blocks).to(model.device)
-            inputs, targets = _get_inputs_and_targets(model, blocks_tensor)
+            accumulation_blocks.append(blocks)
 
-            def gsam_forwards_and_backwards(retain_graph: bool):
-                with torch.enable_grad():
-                    outputs: CausalLMOutputWithPast = model(
-                        inputs_embeds=inputs,
-                        labels=targets,
-                    )
+        optimizer.forward_backward_func = lambda: gsam_forwards_and_backwards(
+            optimizer, model, accumulation_blocks
+        )
+        _predictions, accumulated_loss = optimizer.step()
+        lr_scheduler.step()
+        optimizer.update_rho_t()
 
-                loss = outputs.loss
-                assert loss is not None
-
-                loss.backward(retain_graph=retain_graph)
-
-                return outputs, loss.detach()
-
-            optimizer.forward_backward_func = gsam_forwards_and_backwards
-            _predictions, loss = optimizer.step()
-            lr_scheduler.step()
-            optimizer.update_rho_t()
-
-            accumulated_loss += loss
+        # optimizer.base_optimizer.step()
 
         # optimizer.step()
         lr = lr_scheduler.get_lr()
@@ -257,6 +246,30 @@ def _get_acc_steps(cfg: Config, sp_step):
         )
 
     return cfg.training.base_acc_steps
+
+
+def gsam_forwards_and_backwards(optimizer, model, accumulation_blocks):
+    optimizer.base_optimizer.zero_grad()
+
+    with torch.enable_grad():
+        loss = None
+        for blocks in accumulation_blocks:
+            blocks_tensor = torch.LongTensor(blocks).to(model.device)
+            inputs, targets = _get_inputs_and_targets(model, blocks_tensor)
+
+            outputs: CausalLMOutputWithPast = model(
+                inputs_embeds=inputs,
+                labels=targets,
+            )
+
+            if loss is None:
+                loss = outputs.loss
+            else:
+                loss += outputs.loss
+
+    loss.backward()
+
+    return None, loss.detach()
 
 
 # def _get_tokenized_text(cfg: Config, tokenizer: GPTNeoXTokenizerFast) -> list[int]:
