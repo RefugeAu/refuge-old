@@ -18,6 +18,7 @@ from typing import Optional, cast
 
 import torch
 from torch import nn
+from transformer_lens import HookedTransformer
 from transformers import GPTNeoXForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
 

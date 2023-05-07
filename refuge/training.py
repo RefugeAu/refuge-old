@@ -98,9 +98,11 @@ def train(
         warmup_steps=cfg.scheduler.num_warmup_steps,
     )
     rho_scheduler = pytorch_optimizer.ProportionScheduler(
-        lr_scheduler, max_lr=cfg.optimizer.lr
+        lr_scheduler, max_lr=cfg.optimizer.lr, max_value=1, min_value=0.1
     )
-    optimizer = GSAM(parameters_to_train, base_optimizer, model, rho_scheduler)
+    optimizer = GSAM(
+        parameters_to_train, base_optimizer, model, rho_scheduler, adaptive=True
+    )
 
     # scheduler = transformers.get_cosine_with_hard_restarts_schedule_with_warmup(
     #     optimizer,
@@ -161,18 +163,13 @@ def _inner_loop(
             blocks = []
             for _ in range(cfg.training.batch_size):
                 num_digits = random.randint(1, 6)
-                soft_prompt_for_this_block = "".join(
-                    f"<|{i}|>" for i in range(num_digits * 4)
-                )
                 a = random.randint(10 ** (num_digits - 1), 10**num_digits - 1)
                 b = random.randint(10 ** (num_digits - 1), 10**num_digits - 1)
                 c = a + b
 
                 block = tokenizer.encode(
                     "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n"
-                    "### Instruction:\n"
-                    + soft_prompt_for_this_block
-                    + f"\n{a} + {b}\n\n"
+                    "### Instruction:\n" + model.soft_prompt + f"\n{a} + {b}\n\n"
                     "### Response:\n" + str(c) + "\n\n### End"
                 )
 
@@ -191,6 +188,7 @@ def _inner_loop(
 
         # optimizer.step()
         lr = lr_scheduler.get_lr()
+        rho = optimizer.rho_t
         # scheduler.step()
         # optimizer.zero_grad()
 
@@ -225,6 +223,7 @@ def _inner_loop(
                 # "Eval Loss": f"{eval_loss:.5f}",
                 "Acc Steps": acc_steps,
                 "LR": lr,
+                "Rho": rho,
             },
             refresh=False,
         )

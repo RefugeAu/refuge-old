@@ -21,6 +21,11 @@ pandas = "*"
 tomlkit = "*"
 transformer-lens = "^1.2.2"
 pytorch-optimizer = "^2.9.0"
+pysvelte = {git = "https://github.com/neelnanda-io/PySvelte"}
+plotly = "^5.14.1"
+nbformat = "^5.8.0"
+jupyterlab = "^3.6.3"
+ipywidgets = "^8.0.6"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"

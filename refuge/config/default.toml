@@ -2,12 +2,12 @@
 name = "addition"
 
 [model]
-hugging_face_name = "databricks/dolly-v2-3b"
+hugging_face_name = "EleutherAI/pythia-160m-deduped"
 
 [data]
 
 [prompt]
-initializer = "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23"
+initializer = "Nothing"
 
 [training]
 block_size = 300
@@ -15,12 +15,12 @@ checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 1
 batch_size = 1
-base_acc_steps = 64
+base_acc_steps = 80
 acc_doubling_rate = 0
 plateau_steps = 0
 
 [optimizer]
-lr = 1
+lr = 0.1
 beta1 = 0.0
 decay_rate = -0.8
 weight_decay = 0.1
@@ -28,6 +28,6 @@ scale_parameter = false
 relative_step = false
 
 [scheduler]
-num_warmup_steps = 0
+num_warmup_steps = 10
 num_cycles = 8
-num_training_steps = 10000
+num_training_steps = 5000
