@@ -17,7 +17,7 @@
     "editor.insertSpaces": true,
     "editor.rulers": [79, 119],
     "files.trimTrailingWhitespace": true,
-    "python.formatting.provider": "black",
+    "python.formatting.provider": "none",
     "python.linting.enabled": true,
     "python.linting.lintOnSave": true,
     "python.linting.pylintEnabled": true,
@@ -29,7 +29,8 @@
     // "editor.maxTokenizationLineLength": 100000,
     "[python]": {
       "editor.rulers": [72, 88],
-      "editor.tabSize": 4
+      "editor.tabSize": 4,
+      "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "[typescript]": {
       "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -136,6 +137,7 @@
       "Glnd",
       "gmailjs",
       "googlealerts",
+      "gsam",
       "GSPR",
       "Hardpalate",
       "hashkey",
@@ -241,6 +243,7 @@
       "pyright",
       "pytest",
       "PYTHONPATH",
+      "pytorch",
       "pyupgrade",
       "Qwik",
       "radiotherapyai",

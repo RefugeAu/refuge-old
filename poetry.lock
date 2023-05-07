@@ -2633,6 +2633,22 @@ files = [
 six = ">=1.5"
 
 [[package]]
+name = "pytorch-optimizer"
+version = "2.9.0"
+description = "optimizer & lr scheduler implementations in PyTorch with clean-code, strict types. Also, including useful optimization ideas."
+category = "main"
+optional = false
+python-versions = ">=3.7.2,<4.0.0"
+files = [
+    {file = "pytorch_optimizer-2.9.0-py3-none-any.whl", hash = "sha256:2a2b5b9bb177de918bf1c53f70e83d376823dfe77836d7228caffd2e57ca469c"},
+    {file = "pytorch_optimizer-2.9.0.tar.gz", hash = "sha256:a1fa3dbd0b5adcb8effb47362137884dcf94cae12560c817047613510e07ac51"},
+]
+
+[package.dependencies]
+numpy = {version = "*", markers = "python_version >= \"3.8\""}
+torch = {version = ">=1.10", markers = "python_version >= \"3.8\""}
+
+[[package]]
 name = "pytz"
 version = "2023.3"
 description = "World timezone definitions, modern and historical"
@@ -3938,4 +3954,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "9a6a1efe3b57f59ab0d2db3be789600f8a3a1bcc46ac39e5e6b88fb5b6ccd23d"
+content-hash = "b93f993e03169fd573bdd7a4690573868ad811daa5f3e8a5d1b412b26fb9808f"

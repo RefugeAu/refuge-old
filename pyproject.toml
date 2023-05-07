@@ -20,6 +20,7 @@ numpy = "*"
 pandas = "*"
 tomlkit = "*"
 transformer-lens = "^1.2.2"
+pytorch-optimizer = "^2.9.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"

@@ -19,6 +19,7 @@ import math
 import random
 from typing import cast
 
+import pytorch_optimizer
 import requests
 import torch
 import transformers
@@ -30,6 +31,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from . import config
 from ._checkpoints import load_latest_checkpoint, save_checkpoint
 from ._embeddings import get_embeddings
+from ._gsam import GSAM
 from ._paths import DATA_DIR
 from .model import GPTNeoXPromptTuningLM
 
@@ -87,15 +89,25 @@ def train(
     # ]
 
     parameters_to_train = [model.soft_prompt_parameter]
-    optimizer = Adafactor(parameters_to_train, **cfg.optimizer.__dict__)
-    optimizer.state["step"] = model.step
 
-    scheduler = transformers.get_cosine_with_hard_restarts_schedule_with_warmup(
-        optimizer,
-        num_warmup_steps=cfg.scheduler.num_warmup_steps,
-        num_training_steps=cfg.scheduler.num_training_steps,
-        num_cycles=cfg.scheduler.num_cycles,
+    base_optimizer = torch.optim.AdamW(parameters_to_train)
+    lr_scheduler = pytorch_optimizer.LinearScheduler(
+        base_optimizer,
+        max_lr=cfg.optimizer.lr,
+        t_max=cfg.scheduler.num_training_steps,
+        warmup_steps=cfg.scheduler.num_warmup_steps,
     )
+    rho_scheduler = pytorch_optimizer.ProportionScheduler(
+        lr_scheduler, max_lr=cfg.optimizer.lr
+    )
+    optimizer = GSAM(parameters_to_train, base_optimizer, model, rho_scheduler)
+
+    # scheduler = transformers.get_cosine_with_hard_restarts_schedule_with_warmup(
+    #     optimizer,
+    #     num_warmup_steps=cfg.scheduler.num_warmup_steps,
+    #     num_training_steps=cfg.scheduler.num_training_steps,
+    #     num_cycles=cfg.scheduler.num_cycles,
+    # )
 
     progress_bar = tqdm(total=cfg.scheduler.num_training_steps)
 
@@ -106,7 +118,8 @@ def train(
             # training=training,
             # evaluation_blocks=evaluation_blocks,
             optimizer=optimizer,
-            scheduler=scheduler,
+            # scheduler=scheduler,
+            lr_scheduler=lr_scheduler,
             progress_bar=progress_bar,
             tokenizer=tokenizer,
         )
@@ -121,8 +134,9 @@ def _inner_loop(
     model: GPTNeoXPromptTuningLM,
     # training: list[int],
     # evaluation_blocks: list[list[int]],
-    optimizer: Adafactor,
-    scheduler: LambdaLR,
+    optimizer: pytorch_optimizer.GSAM,
+    lr_scheduler,
+    # scheduler: LambdaLR,
     progress_bar: tqdm,
 ):
     # num_text_tokens = len(training)
@@ -144,7 +158,7 @@ def _inner_loop(
 
             blocks = []
             for _ in range(cfg.training.batch_size):
-                num_digits = random.randint(1, 20)
+                num_digits = random.randint(1, 6)
                 soft_prompt_for_this_block = "".join(
                     f"<|{i}|>" for i in range(num_digits)
                 )
@@ -157,24 +171,39 @@ def _inner_loop(
                     "### Instruction:\n"
                     + soft_prompt_for_this_block
                     + f"\n{a} + {b}\n\n"
-                    "### Response:\n" + str(c)
+                    "### Response:\n" + str(c) + "\n\n### End"
                 )
 
                 blocks.append(block)
 
             blocks_tensor = torch.LongTensor(blocks).to(model.device)
-            outputs = _evaluate_model(model, blocks_tensor)
+            inputs, targets = _get_inputs_and_targets(model, blocks_tensor)
 
-            loss = outputs.loss
-            assert loss is not None
-            loss.backward()
+            def gsam_forwards_and_backwards(retain_graph: bool):
+                with torch.enable_grad():
+                    outputs: CausalLMOutputWithPast = model(
+                        inputs_embeds=inputs,
+                        labels=targets,
+                    )
 
-            accumulated_loss += loss.detach()
+                loss = outputs.loss
+                assert loss is not None
 
-        optimizer.step()
-        lr = optimizer.param_groups[0]["lr"]
-        scheduler.step()
-        optimizer.zero_grad()
+                loss.backward(retain_graph=retain_graph)
+
+                return outputs, loss.detach()
+
+            optimizer.forward_backward_func = gsam_forwards_and_backwards
+            _predictions, loss = optimizer.step()
+            lr_scheduler.step()
+            optimizer.update_rho_t()
+
+            accumulated_loss += loss
+
+        # optimizer.step()
+        lr = lr_scheduler.get_lr()
+        # scheduler.step()
+        # optimizer.zero_grad()
 
         model.step += 1
 
@@ -213,16 +242,11 @@ def _inner_loop(
         progress_bar.update(1)
 
 
-def _evaluate_model(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
-    inputs_embeds = _cat_learned_embedding_to_input(model, blocks)
-    labels = _extend_labels(model, blocks)
+def _get_inputs_and_targets(model: GPTNeoXPromptTuningLM, blocks: torch.Tensor):
+    inputs = _cat_learned_embedding_to_input(model, blocks)
+    targets = _extend_labels(model, blocks)
 
-    outputs: CausalLMOutputWithPast = model(
-        inputs_embeds=inputs_embeds.to(model.device),
-        labels=labels.to(model.device),
-    )
-
-    return outputs
+    return inputs.to(model.device), targets.to(model.device)
 
 
 def _get_acc_steps(cfg: Config, sp_step):

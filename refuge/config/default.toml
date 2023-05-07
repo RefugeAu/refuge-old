@@ -15,7 +15,7 @@ checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 1
 batch_size = 1
-base_acc_steps = 16
+base_acc_steps = 64
 acc_doubling_rate = 0
 plateau_steps = 0
 
