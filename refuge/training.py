@@ -162,16 +162,11 @@ def _inner_loop(
 
             blocks = []
             for _ in range(cfg.training.batch_size):
-                num_digits = random.randint(1, 6)
-                a = random.randint(10 ** (num_digits - 1), 10**num_digits - 1)
-                b = random.randint(10 ** (num_digits - 1), 10**num_digits - 1)
+                a = random.randint(1, 99)
+                b = random.randint(1, 99)
                 c = a + b
 
-                block = tokenizer.encode(
-                    "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n"
-                    "### Instruction:\n" + model.soft_prompt + f"\n{a} + {b}\n\n"
-                    "### Response:\n" + str(c) + "\n\n### End"
-                )
+                block = tokenizer.encode(f"{model.soft_prompt}; {a} + {b} = {c};")
 
                 blocks.append(block)
 

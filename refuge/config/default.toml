@@ -2,12 +2,12 @@
 name = "addition"
 
 [model]
-hugging_face_name = "EleutherAI/pythia-160m-deduped"
+hugging_face_name = "EleutherAI/pythia-410m-deduped"
 
 [data]
 
 [prompt]
-initializer = "Nothing"
+initializer = "10 + 10 = 20; 15 + 16 = 31"
 
 [training]
 block_size = 300
@@ -15,7 +15,7 @@ checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 1
 batch_size = 1
-base_acc_steps = 80
+base_acc_steps = 512
 acc_doubling_rate = 0
 plateau_steps = 0
 
