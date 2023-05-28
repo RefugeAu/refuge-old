@@ -164,8 +164,8 @@ def _inner_loop(
 
             blocks = []
             for _ in range(cfg.training.batch_size):
-                a = random.randint(0, 999)
-                b = random.randint(0, 999)
+                a = random.randint(0, 99999)
+                b = random.randint(0, 99999)
                 c = a + b
 
                 block = tokenizer.encode(

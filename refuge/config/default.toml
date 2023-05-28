@@ -15,12 +15,12 @@ checkpoint_interval = 20
 eval_interval = 5
 eval_blocks = 1
 batch_size = 1
-base_acc_steps = 250
+base_acc_steps = 200
 acc_doubling_rate = 0
 plateau_steps = 0
 
 [optimizer]
-lr = 0.1
+lr = 1
 beta1 = 0.0
 decay_rate = -0.8
 weight_decay = 0.1
